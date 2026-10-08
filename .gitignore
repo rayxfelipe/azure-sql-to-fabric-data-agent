@@ -1,0 +1,22 @@
+.copilot-azure/
+.github/agents/
+
+# Local credentials and environment overrides
+.env
+.env.*
+!.env.example
+!.env.sample
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+dist/
+build/
+*.egg-info/
+
+# Generated deployment outputs
+*.local.json
+infra/main.json

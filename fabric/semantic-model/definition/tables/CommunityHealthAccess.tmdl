@@ -1,0 +1,71 @@
+table CommunityHealthAccess
+	lineageTag: 865b9d8d-3032-4ab4-a426-a2f6cb08b109
+
+	measure 'Appointments' = SUM(CommunityHealthAccess[AppointmentCount])
+		formatString: #,0
+
+	measure 'Completed Appointments' = SUM(CommunityHealthAccess[CompletedCount])
+		formatString: #,0
+
+	measure 'No-Show Rate' =
+			DIVIDE(
+			    SUM(CommunityHealthAccess[NoShowCount]),
+			    SUM(CommunityHealthAccess[AppointmentCount])
+			)
+		formatString: 0.0%
+
+	measure 'Average Wait Days' = AVERAGE(CommunityHealthAccess[AverageWaitDays])
+		formatString: 0.0
+
+	column ScheduledDate
+		dataType: dateTime
+		formatString: Long Date
+		summarizeBy: none
+		sourceColumn: ScheduledDate
+
+	column ServiceCategory
+		dataType: string
+		summarizeBy: none
+		sourceColumn: ServiceCategory
+
+	column FacilityNeighborhood
+		dataType: string
+		summarizeBy: none
+		sourceColumn: FacilityNeighborhood
+
+	column AgeBand
+		dataType: string
+		summarizeBy: none
+		sourceColumn: AgeBand
+
+	column DemographicGroup
+		dataType: string
+		summarizeBy: none
+		sourceColumn: DemographicGroup
+
+	column AppointmentCount
+		dataType: int64
+		summarizeBy: sum
+		sourceColumn: AppointmentCount
+
+	column CompletedCount
+		dataType: int64
+		summarizeBy: sum
+		sourceColumn: CompletedCount
+
+	column NoShowCount
+		dataType: int64
+		summarizeBy: sum
+		sourceColumn: NoShowCount
+
+	column AverageWaitDays
+		dataType: double
+		summarizeBy: average
+		sourceColumn: AverageWaitDays
+
+	partition CommunityHealthAccess = entity
+		mode: directLake
+		source
+			entityName: analytics.vw_CommunityHealthAccess
+			schemaName: analytics
+			expressionSource: DatabaseQuery

@@ -1,0 +1,50 @@
+table ReferralPerformance
+	lineageTag: ee0e3075-5470-46f7-bd74-65534ff66e95
+
+	measure 'Referrals' = SUM(ReferralPerformance[ReferralCount])
+		formatString: #,0
+
+	measure 'Referral Completion Rate' =
+			DIVIDE(
+			    SUM(ReferralPerformance[CompletedReferralCount]),
+			    SUM(ReferralPerformance[ReferralCount])
+			)
+		formatString: 0.0%
+
+	column ReferralDate
+		dataType: dateTime
+		formatString: Long Date
+		summarizeBy: none
+		sourceColumn: ReferralDate
+
+	column ServiceCategory
+		dataType: string
+		summarizeBy: none
+		sourceColumn: ServiceCategory
+
+	column Neighborhood
+		dataType: string
+		summarizeBy: none
+		sourceColumn: Neighborhood
+
+	column ReferralCount
+		dataType: int64
+		summarizeBy: sum
+		sourceColumn: ReferralCount
+
+	column CompletedReferralCount
+		dataType: int64
+		summarizeBy: sum
+		sourceColumn: CompletedReferralCount
+
+	column AverageDaysToClose
+		dataType: double
+		summarizeBy: average
+		sourceColumn: AverageDaysToClose
+
+	partition ReferralPerformance = entity
+		mode: directLake
+		source
+			entityName: analytics.vw_ReferralPerformance
+			schemaName: analytics
+			expressionSource: DatabaseQuery

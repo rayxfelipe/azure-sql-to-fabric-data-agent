@@ -1,0 +1,27 @@
+{
+  "properties": {
+    "source": {
+      "type": "AzureSqlDatabase",
+      "typeProperties": {
+        "connection": "{{CONNECTION_ID}}",
+        "database": "sqldb-community-health"
+      }
+    },
+    "target": {
+      "type": "MountedRelationalDatabase",
+      "typeProperties": {
+        "defaultSchema": "health",
+        "format": "Delta"
+      }
+    },
+    "mountedTables": [
+      { "source": { "typeProperties": { "schemaName": "health", "tableName": "Facilities" } } },
+      { "source": { "typeProperties": { "schemaName": "health", "tableName": "Programs" } } },
+      { "source": { "typeProperties": { "schemaName": "health", "tableName": "Clients" } } },
+      { "source": { "typeProperties": { "schemaName": "health", "tableName": "Appointments" } } },
+      { "source": { "typeProperties": { "schemaName": "health", "tableName": "Referrals" } } },
+      { "source": { "typeProperties": { "schemaName": "health", "tableName": "Outcomes" } } },
+      { "source": { "typeProperties": { "schemaName": "health", "tableName": "CapacitySnapshots" } } }
+    ]
+  }
+}

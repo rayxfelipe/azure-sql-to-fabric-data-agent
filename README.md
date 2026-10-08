@@ -3,7 +3,9 @@
 An end-to-end demonstration of a public-health analytics solution that moves synthetic transactional data from Azure SQL Database into Microsoft Fabric and makes governed business concepts available through a Fabric Data Agent.
 
 > [!IMPORTANT]
-> This project is in the planning stage. No application, infrastructure, or Fabric artifacts have been committed to this repository yet.
+> The compliant Azure foundation and Fabric workspace/gateway are deployed. Completion
+> is blocked on a pre-existing tenant service principal credential for private Azure SQL
+> access; no policy bypass or out-of-scope identity was created.
 
 ## Scenario
 
@@ -11,7 +13,42 @@ The demonstration is designed for a community and public-health context. It will
 
 The sample data will be entirely synthetic. This repository must not contain real patient information, protected health information (PHI), credentials, or production connection strings.
 
-## Planned Architecture
+## Starter Application
+
+The Python 3.12 FastAPI service generates a deterministic, non-identifying
+community-health dataset in memory. It deliberately has no cloud database client
+and does not model names, addresses, contact details, clinical notes, or other
+direct identifiers.
+
+### Run locally
+
+Create and activate a virtual environment, then install the application dependencies:
+
+```powershell
+py -3.12 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
+Copy-Item .env.sample .env
+uvicorn main:app --host 0.0.0.0 --port 8000
+```
+
+Environment variables in `.env.sample` document the deterministic seed, record
+count, reference date, CORS origins, and listening port. Uvicorn does not load
+`.env` automatically; set those variables in the shell when overriding defaults.
+For a Linux production process, use:
+
+```text
+gunicorn -w 4 -k uvicorn.workers.UvicornWorker main:app --bind 0.0.0.0:${PORT:-8000}
+```
+
+Available endpoints:
+
+- `GET /healthz` — liveness response (`200 {"status":"ok"}`)
+- `GET /readyz` — in-memory dataset readiness (`200`, or `503` if unavailable)
+- `GET /api/v1/synthetic-data` — deterministic synthetic dataset
+- `GET /docs` — interactive OpenAPI documentation
+
+## Architecture
 
 ```mermaid
 flowchart LR
@@ -120,6 +157,9 @@ The repository will evolve toward the following layout:
 ```text
 .
 |-- infra/                  # Azure infrastructure as code
+|-- src/community_health/   # Synthetic data API and local data layer
+|-- main.py                 # ASGI entry point
+|-- requirements.txt        # Python production dependencies
 |-- database/
 |   |-- schema/             # Azure SQL OLTP schema
 |   |-- seed/               # Synthetic sample data
@@ -139,11 +179,12 @@ This structure is provisional and will be adjusted to match the deployment and s
 
 ## Delivery Plan
 
-- [ ] Define naming, region, networking, and access conventions
-- [ ] Create Azure infrastructure as code
-- [ ] Create the Azure SQL OLTP schema
-- [ ] Generate and load synthetic community-health data
-- [ ] Configure Fabric capacity and a dedicated workspace
+- [x] Define naming, region, networking, and access conventions
+- [x] Create Azure infrastructure as code
+- [x] Create the Azure SQL OLTP schema
+- [x] Create a deterministic local synthetic-data starter service
+- [ ] Load synthetic community-health data into Azure SQL
+- [x] Configure Fabric capacity and a dedicated workspace
 - [ ] Configure Azure SQL Mirroring
 - [ ] Create the Fabric Warehouse and transformation pipeline
 - [ ] Build the Direct Lake semantic model
@@ -163,9 +204,33 @@ The deployment will create billable Azure and Microsoft Fabric resources. The im
 - Avoid unnecessary supporting services.
 - Document resource cleanup and shutdown procedures.
 
-## Status
+## Deployment Status
 
-**Planning**
+**Azure foundation deployed; Fabric data path blocked by an identity prerequisite.**
 
-The initial architecture and scope have been defined. Implementation has not started.
+Deployed in the approved boundary:
 
+- Resource group `rg-e2e-sql-to-fabricagent`
+- Entra-only Azure SQL server `sql-e2e-fabricagent-dev-3af2`
+- S3 database `sqldb-community-health`
+- Private VNet, SQL private endpoint, private DNS, and delegated Fabric gateway subnet
+- Key Vault `kv-e2e-fabric-3af2`
+- Fabric workspace `ws-e2e-sql-to-fabricagent`
+- Fabric VNet data gateway `gw-e2e-sql-to-fabricagent`
+
+The tenant's MCAPS policies enforce both Entra-only authentication and private-only
+Azure SQL networking. Fabric's VNet Data Gateway rejects OAuth2 user credentials for
+Azure SQL (`OAuth2CredentialsNotSupportedForConnection`) and requires Basic or
+service-principal credentials. Basic authentication is prohibited by the Entra-only
+policy. Creating a new Entra application or service principal would be outside the
+approved resource-group/workspace boundary, so deployment stopped rather than bypassing
+governance.
+
+To continue, supply an existing tenant service principal's client ID, object ID,
+display name, and secret to `scripts/Deploy-Fabric.ps1`. The script securely accepts the
+secret as a `SecureString`, configures that principal as the Entra-only SQL administrator,
+creates the private Fabric connection, initializes the synthetic schema/data, and proceeds
+with the remaining Fabric items.
+
+The F8 capacity was paused after the deployment attempt. application validation; infrastructure, database, and
+Fabric implementation have not started.

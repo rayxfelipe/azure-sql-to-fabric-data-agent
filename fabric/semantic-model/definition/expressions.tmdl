@@ -1,0 +1,6 @@
+expression DatabaseQuery =
+		let
+		    Source = Sql.Database("{{WAREHOUSE_SQL_ENDPOINT}}", "CommunityHealthAnalyticsWH")
+		in
+		    Source
+	lineageTag: fa2cc54b-15a9-462e-885b-a795650bb4c0

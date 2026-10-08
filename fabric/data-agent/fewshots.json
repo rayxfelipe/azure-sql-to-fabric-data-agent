@@ -1,0 +1,20 @@
+{
+  "$schema": "1.0.0",
+  "fewShots": [
+    {
+      "id": "fbb7bf04-4251-46ac-9fe8-f2b8135925f2",
+      "question": "Which service categories have the longest average wait time?",
+      "query": "EVALUATE TOPN(10, SUMMARIZECOLUMNS(CommunityHealthAccess[ServiceCategory], \"Average Wait Days\", [Average Wait Days]), [Average Wait Days], DESC)"
+    },
+    {
+      "id": "e7444cbe-cd27-47ac-9822-56512efcb644",
+      "question": "What is the no-show rate by facility neighborhood?",
+      "query": "EVALUATE SUMMARIZECOLUMNS(CommunityHealthAccess[FacilityNeighborhood], \"No-Show Rate\", [No-Show Rate])"
+    },
+    {
+      "id": "8f5133fe-03bf-4b06-9c8d-04bf09127ef2",
+      "question": "How many referrals were completed by service category?",
+      "query": "EVALUATE SUMMARIZECOLUMNS(ReferralPerformance[ServiceCategory], \"Referrals\", [Referrals], \"Referral Completion Rate\", [Referral Completion Rate])"
+    }
+  ]
+}

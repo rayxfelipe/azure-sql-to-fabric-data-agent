@@ -1,0 +1,10 @@
+{
+  "$schema": "1.0.0",
+  "artifactId": "{{SEMANTIC_MODEL_ID}}",
+  "workspaceId": "{{WORKSPACE_ID}}",
+  "displayName": "Community Health Access Model",
+  "type": "semantic_model",
+  "userDescription": "Direct Lake semantic model containing privacy-controlled synthetic community-health access and referral measures.",
+  "dataSourceInstructions": "Use governed measures and aggregate dimensions only. All exposed source views suppress cells with fewer than 11 records.",
+  "elements": []
+}
