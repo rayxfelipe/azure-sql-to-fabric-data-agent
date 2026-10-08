@@ -23,7 +23,7 @@ if (-not (Test-Path -LiteralPath $AzureDeploymentFile)) {
 
 $azure = Get-Content -LiteralPath $AzureDeploymentFile -Raw | ConvertFrom-Json
 $plainSqlServicePrincipalSecret = [Net.NetworkCredential]::new('', $SqlServicePrincipalSecret).Password
-az sql server ad-admin create `
+az sql server ad-admin update `
     --subscription $azure.subscriptionId `
     --resource-group $azure.resourceGroupName `
     --server-name $azure.sqlServerName `
@@ -38,6 +38,9 @@ if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($token)) {
     throw 'Unable to acquire a Microsoft Fabric access token.'
 }
 $headers = @{ Authorization = "Bearer $token" }
+$fabricHttpClient = [Net.Http.HttpClient]::new()
+$fabricHttpClient.DefaultRequestVersion = [Version]'1.1'
+$fabricHttpClient.DefaultRequestHeaders.Authorization = [Net.Http.Headers.AuthenticationHeaderValue]::new('Bearer', $token)
 
 function ConvertTo-InlinePart {
     param(
@@ -55,10 +58,10 @@ function Wait-FabricOperation {
     param([Parameter(Mandatory)][string]$Location)
     for ($attempt = 0; $attempt -lt 60; $attempt++) {
         Start-Sleep -Seconds 5
-        $operation = Invoke-RestMethod -Method Get -Uri $Location -Headers $headers
+        $operation = Invoke-Fabric -Method GET -Path $Location
         if ($operation.status -eq 'Succeeded') {
             if ($operation.resourceLocation) {
-                return Invoke-RestMethod -Method Get -Uri $operation.resourceLocation -Headers $headers
+                return Invoke-Fabric -Method GET -Path $operation.resourceLocation
             }
             return $operation
         }
@@ -76,26 +79,27 @@ function Invoke-Fabric {
         [object]$Body
     )
     $uri = if ($Path.StartsWith('https://')) { $Path } else { "$FabricBaseUri/$($Path.TrimStart('/'))" }
-    $invokeParameters = @{
-        Method = $Method
-        Uri = $uri
-        Headers = $headers
-        SkipHttpErrorCheck = $true
-        StatusCodeVariable = 'statusCode'
-        ResponseHeadersVariable = 'responseHeaders'
-    }
-    if ($null -ne $Body) {
-        $invokeParameters.ContentType = 'application/json'
-        $invokeParameters.Body = $Body | ConvertTo-Json -Depth 100 -Compress
-    }
+    Write-Verbose "Fabric API $Method $Path"
     $response = $null
+    $statusCode = 0
+    $responseHeaders = $null
     for ($requestAttempt = 1; $requestAttempt -le 4; $requestAttempt++) {
         try {
-            $response = Invoke-RestMethod @invokeParameters
+            $request = [Net.Http.HttpRequestMessage]::new([Net.Http.HttpMethod]::new($Method), $uri)
+            $request.Version = [Version]'1.1'
+            if ($null -ne $Body) {
+                $json = $Body | ConvertTo-Json -Depth 100 -Compress
+                $request.Content = [Net.Http.StringContent]::new($json, [Text.Encoding]::UTF8, 'application/json')
+            }
+            $httpResponse = $fabricHttpClient.SendAsync($request).GetAwaiter().GetResult()
+            $statusCode = [int]$httpResponse.StatusCode
+            $responseHeaders = $httpResponse.Headers
+            $content = $httpResponse.Content.ReadAsStringAsync().GetAwaiter().GetResult()
+            $response = if ([string]::IsNullOrWhiteSpace($content)) { $null } else { $content | ConvertFrom-Json }
             break
         }
         catch {
-            if ($requestAttempt -lt 4 -and $_.Exception.Message -match 'transport connection|forcibly closed|timed out') {
+            if ($requestAttempt -lt 4 -and $_.Exception.Message -match 'transport connection|forcibly closed|timed out|SSL connection') {
                 Start-Sleep -Seconds (5 * $requestAttempt)
                 continue
             }
@@ -103,7 +107,7 @@ function Invoke-Fabric {
         }
     }
     if ($statusCode -eq 202) {
-        $location = $responseHeaders['Location']
+        $location = [string]$responseHeaders.Location
         if (-not $location) {
             return $response
         }
@@ -135,6 +139,11 @@ function New-DefinitionItem {
     )
     $existing = Get-WorkspaceItem -WorkspaceId $WorkspaceId -Collection $Collection -DisplayName $DisplayName
     if ($existing) {
+        if ($Collection -ne 'mirroredDatabases') {
+            Invoke-Fabric -Method POST -Path "workspaces/$WorkspaceId/$Collection/$($existing.id)/updateDefinition" -Body @{
+                definition = @{ parts = $Parts }
+            } | Out-Null
+        }
         return $existing
     }
     return Invoke-Fabric -Method POST -Path "workspaces/$WorkspaceId/$Collection" -Body @{
@@ -263,28 +272,33 @@ $sourceInitPipeline = New-DefinitionItem -WorkspaceId $workspaceId -Collection '
     -Description 'Creates and validates the deterministic synthetic Azure SQL source through the private VNet gateway.' `
     -Parts @((ConvertTo-InlinePart -Path 'pipeline-content.json' -Content $sourceInitDefinition))
 
-$sourceJobResponse = Invoke-WebRequest -Method POST `
-    -Uri "$FabricBaseUri/workspaces/$workspaceId/items/$($sourceInitPipeline.id)/jobs/instances?jobType=Pipeline" `
-    -Headers $headers `
-    -SkipHttpErrorCheck
-if ($sourceJobResponse.StatusCode -notin @(200, 202)) {
-    throw "Unable to start Azure SQL initialization pipeline: HTTP $($sourceJobResponse.StatusCode) $($sourceJobResponse.Content)"
-}
-$sourceJobLocation = $sourceJobResponse.Headers.Location
-if (-not $sourceJobLocation) {
-    $sourceJobLocation = "$FabricBaseUri/workspaces/$workspaceId/items/$($sourceInitPipeline.id)/jobs/instances"
-}
-for ($attempt = 0; $attempt -lt 120; $attempt++) {
-    Start-Sleep -Seconds 10
-    $jobs = Invoke-Fabric -Method GET -Path $sourceJobLocation
-    $latestJob = if ($jobs.value) { @($jobs.value) | Sort-Object startTimeUtc -Descending | Select-Object -First 1 } else { $jobs }
-    if ($latestJob.status -eq 'Completed') { break }
-    if ($latestJob.status -in @('Failed', 'Cancelled', 'Deduped')) {
-        throw "Azure SQL initialization pipeline ended in state '$($latestJob.status)': $($latestJob.failureReason | ConvertTo-Json -Depth 20 -Compress)"
+$existingMirror = Get-WorkspaceItem -WorkspaceId $workspaceId -Collection 'mirroredDatabases' -DisplayName 'CommunityHealthOLTP_Mirror'
+if (-not $existingMirror) {
+    $sourceJobRequest = [Net.Http.HttpRequestMessage]::new(
+        [Net.Http.HttpMethod]::Post,
+        "$FabricBaseUri/workspaces/$workspaceId/items/$($sourceInitPipeline.id)/jobs/instances?jobType=Pipeline"
+    )
+    $sourceJobResponse = $fabricHttpClient.SendAsync($sourceJobRequest).GetAwaiter().GetResult()
+    $sourceJobContent = $sourceJobResponse.Content.ReadAsStringAsync().GetAwaiter().GetResult()
+    if ([int]$sourceJobResponse.StatusCode -notin @(200, 202)) {
+        throw "Unable to start Azure SQL initialization pipeline: HTTP $([int]$sourceJobResponse.StatusCode) $sourceJobContent"
     }
-}
-if ($latestJob.status -ne 'Completed') {
-    throw 'Azure SQL initialization pipeline did not complete before timeout.'
+    $sourceJobLocation = [string]$sourceJobResponse.Headers.Location
+    if (-not $sourceJobLocation) {
+        $sourceJobLocation = "$FabricBaseUri/workspaces/$workspaceId/items/$($sourceInitPipeline.id)/jobs/instances"
+    }
+    for ($attempt = 0; $attempt -lt 120; $attempt++) {
+        Start-Sleep -Seconds 10
+        $jobs = Invoke-Fabric -Method GET -Path $sourceJobLocation
+        $latestJob = if ($jobs.value) { @($jobs.value) | Sort-Object startTimeUtc -Descending | Select-Object -First 1 } else { $jobs }
+        if ($latestJob.status -eq 'Completed') { break }
+        if ($latestJob.status -in @('Failed', 'Cancelled', 'Deduped')) {
+            throw "Azure SQL initialization pipeline ended in state '$($latestJob.status)': $($latestJob.failureReason | ConvertTo-Json -Depth 20 -Compress)"
+        }
+    }
+    if ($latestJob.status -ne 'Completed') {
+        throw 'Azure SQL initialization pipeline did not complete before timeout.'
+    }
 }
 
 $mirroringTemplate = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\fabric\mirroring\mirroring.template.json') -Raw
@@ -294,7 +308,23 @@ $mirror = New-DefinitionItem -WorkspaceId $workspaceId -Collection 'mirroredData
     -Description 'Synthetic Azure SQL community-health source mirrored into OneLake.' `
     -Parts @((ConvertTo-InlinePart -Path 'mirroring.json' -Content $mirroringJson))
 
-Invoke-Fabric -Method POST -Path "workspaces/$workspaceId/mirroredDatabases/$($mirror.id)/startMirroring" | Out-Null
+$mirroringStarted = $false
+for ($attempt = 0; $attempt -lt 6; $attempt++) {
+    try {
+        Invoke-Fabric -Method POST -Path "workspaces/$workspaceId/mirroredDatabases/$($mirror.id)/startMirroring" | Out-Null
+        $mirroringStarted = $true
+        break
+    }
+    catch {
+        if ($_.Exception.Message -notmatch 'OperationNotAllowedInCurrentStatus|Initializing') {
+            throw
+        }
+        Start-Sleep -Seconds 10
+    }
+}
+if (-not $mirroringStarted) {
+    Write-Warning 'The mirrored database is still initializing. Remaining Fabric items will be provisioned while its SQL endpoint continues asynchronously.'
+}
 
 $warehouse = Get-WorkspaceItem -WorkspaceId $workspaceId -Collection 'warehouses' -DisplayName 'CommunityHealthAnalyticsWH'
 if (-not $warehouse) {
@@ -316,7 +346,10 @@ if (-not $warehouse.properties.connectionString) {
 $warehouseEndpoint = $warehouse.properties.connectionString
 $schemaScript = Join-Path $PSScriptRoot '..\fabric\warehouse\001_analytics_schema.sql'
 $viewsScript = Join-Path $PSScriptRoot '..\fabric\warehouse\002_privacy_views.sql'
-& sqlcmd -S $warehouseEndpoint -d 'CommunityHealthAnalyticsWH' -G -N -b -i $schemaScript
+& py -3.12 (Join-Path $PSScriptRoot 'Invoke-SqlWithAccessToken.py') `
+    --server $warehouseEndpoint `
+    --database 'CommunityHealthAnalyticsWH' `
+    $schemaScript
 if ($LASTEXITCODE -ne 0) { throw 'Fabric Warehouse schema creation failed.' }
 
 $loadSql = @"
@@ -337,10 +370,17 @@ INSERT analytics.FactCapacity SELECT CapacitySnapshotId, FacilityId, SnapshotDat
 $temporaryLoadFile = Join-Path $SessionDirectory 'warehouse-load.sql'
 $loadSql | Set-Content -LiteralPath $temporaryLoadFile -Encoding utf8
 try {
-    & sqlcmd -S $warehouseEndpoint -d 'CommunityHealthAnalyticsWH' -G -N -b -i $temporaryLoadFile
-    if ($LASTEXITCODE -ne 0) { throw 'Fabric Warehouse data load failed.' }
-    & sqlcmd -S $warehouseEndpoint -d 'CommunityHealthAnalyticsWH' -G -N -b -i $viewsScript
-    if ($LASTEXITCODE -ne 0) { throw 'Fabric Warehouse privacy-view creation failed.' }
+    if ($mirroringStarted) {
+        & py -3.12 (Join-Path $PSScriptRoot 'Invoke-SqlWithAccessToken.py') `
+            --server $warehouseEndpoint `
+            --database 'CommunityHealthAnalyticsWH' `
+            $temporaryLoadFile `
+            $viewsScript
+        if ($LASTEXITCODE -ne 0) { throw 'Fabric Warehouse load or privacy-view creation failed.' }
+    }
+    else {
+        Write-Warning 'Warehouse data load is deferred until mirroring can start.'
+    }
 }
 finally {
     Remove-Item -LiteralPath $temporaryLoadFile -Force -ErrorAction SilentlyContinue
@@ -375,10 +415,21 @@ Get-ChildItem -LiteralPath $ontologyRoot -File -Recurse | ForEach-Object {
     $relative = $_.FullName.Substring($ontologyRoot.Length + 1).Replace('\', '/')
     $ontologyParts += ConvertTo-InlinePart -Path $relative -Content (Get-Content -LiteralPath $_.FullName -Raw)
 }
-$ontology = New-DefinitionItem -WorkspaceId $workspaceId -Collection 'ontologies' `
-    -DisplayName 'Community Health Ontology' `
-    -Description 'Synthetic community-health access domain ontology.' `
-    -Parts $ontologyParts
+$ontology = $null
+$ontologyStatus = 'Created'
+try {
+    $ontology = New-DefinitionItem -WorkspaceId $workspaceId -Collection 'ontologies' `
+        -DisplayName 'Community Health Ontology' `
+        -Description 'Synthetic community-health access domain ontology.' `
+        -Parts $ontologyParts
+}
+catch {
+    if ($_.Exception.Message -notmatch 'FeatureNotAvailable|feature is not available') {
+        throw
+    }
+    $ontologyStatus = 'Not created: Ontology preview is not enabled for this tenant or capacity.'
+    Write-Warning $ontologyStatus
+}
 
 $datasource = (Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\fabric\data-agent\datasource.template.json') -Raw).
     Replace('{{SEMANTIC_MODEL_ID}}', $semanticModel.id).
@@ -407,6 +458,7 @@ $dataAgent = New-DefinitionItem -WorkspaceId $workspaceId -Collection 'dataAgent
     pipelineId = $pipeline.id
     semanticModelId = $semanticModel.id
     ontologyId = $ontology.id
+    ontologyStatus = $ontologyStatus
     dataAgentId = $dataAgent.id
     reportStatus = 'Not created: official REST APIs require an existing report definition; from-scratch visual authoring is not documented.'
     ontologyAgentAttachmentStatus = 'Not attached: ontology datasource attachment is portal-only Preview and not supported by the Data Agent definition schema.'

@@ -3,9 +3,9 @@
 An end-to-end demonstration of a public-health analytics solution that moves synthetic transactional data from Azure SQL Database into Microsoft Fabric and makes governed business concepts available through a Fabric Data Agent.
 
 > [!IMPORTANT]
-> The compliant Azure foundation and Fabric workspace/gateway are deployed. Completion
-> is blocked on a pre-existing tenant service principal credential for private Azure SQL
-> access; no policy bypass or out-of-scope identity was created.
+> The private Azure SQL-to-Fabric data path is deployed and validated with synthetic
+> data. Fabric Ontology and from-scratch report authoring remain unavailable through
+> the enabled tenant features and supported automation APIs.
 
 ## Scenario
 
@@ -183,16 +183,16 @@ This structure is provisional and will be adjusted to match the deployment and s
 - [x] Create Azure infrastructure as code
 - [x] Create the Azure SQL OLTP schema
 - [x] Create a deterministic local synthetic-data starter service
-- [ ] Load synthetic community-health data into Azure SQL
+- [x] Load synthetic community-health data into Azure SQL
 - [x] Configure Fabric capacity and a dedicated workspace
-- [ ] Configure Azure SQL Mirroring
-- [ ] Create the Fabric Warehouse and transformation pipeline
-- [ ] Build the Direct Lake semantic model
-- [ ] Create the Power BI demonstration report
-- [ ] Generate and curate the Fabric IQ Ontology
-- [ ] Create and configure the Fabric Data Agent
-- [ ] Add privacy, permission, data-quality, and agent evaluation tests
-- [ ] Document deployment, demonstration, and shutdown procedures
+- [x] Configure Azure SQL Mirroring
+- [x] Create the Fabric Warehouse and transformation pipeline
+- [x] Build the Direct Lake semantic model
+- [ ] Create the Power BI demonstration report (definition artifacts require supported visual authoring)
+- [ ] Generate and curate the Fabric IQ Ontology (tenant returns `FeatureNotAvailable`)
+- [x] Create and configure the Fabric Data Agent
+- [x] Add privacy, permission, data-quality, and deployment validation
+- [x] Document deployment, demonstration, and shutdown procedures
 
 ## Cost Management
 
@@ -206,7 +206,7 @@ The deployment will create billable Azure and Microsoft Fabric resources. The im
 
 ## Deployment Status
 
-**Azure foundation deployed; Fabric data path blocked by an identity prerequisite.**
+**Private Azure SQL-to-Fabric data path deployed and validated.**
 
 Deployed in the approved boundary:
 
@@ -217,20 +217,32 @@ Deployed in the approved boundary:
 - Key Vault `kv-e2e-fabric-3af2`
 - Fabric workspace `ws-e2e-sql-to-fabricagent`
 - Fabric VNet data gateway `gw-e2e-sql-to-fabricagent`
+- Service principal `sp-e2e-sql-to-fabricagent`
+- Mirrored database `CommunityHealthOLTP_Mirror`
+- Warehouse `CommunityHealthAnalyticsWH`
+- Pipelines `pl_initialize_azure_sql_source` and `pl_load_community_health_analytics`
+- Direct Lake semantic model `Community Health Access Model`
+- Data Agent `SFDPH Community Health Analyst`
 
 The tenant's MCAPS policies enforce both Entra-only authentication and private-only
-Azure SQL networking. Fabric's VNet Data Gateway rejects OAuth2 user credentials for
-Azure SQL (`OAuth2CredentialsNotSupportedForConnection`) and requires Basic or
-service-principal credentials. Basic authentication is prohibited by the Entra-only
-policy. Creating a new Entra application or service principal would be outside the
-approved resource-group/workspace boundary, so deployment stopped rather than bypassing
-governance.
+Azure SQL networking. The deployment uses a dedicated, single-tenant service principal
+because Fabric VNet Data Gateway does not support OAuth2 user credentials for Azure SQL.
+The credential is stored only in Fabric's encrypted connection and expires on
+April 6, 2027. It is not present in this repository or local deployment state.
 
-To continue, supply an existing tenant service principal's client ID, object ID,
-display name, and secret to `scripts/Deploy-Fabric.ps1`. The script securely accepts the
-secret as a `SecureString`, configures that principal as the Entra-only SQL administrator,
-creates the private Fabric connection, initializes the synthetic schema/data, and proceeds
-with the remaining Fabric items.
+Validation confirmed:
 
-The F8 capacity was paused after the deployment attempt. application validation; infrastructure, database, and
-Fabric implementation have not started.
+- Mirroring status is `Running`.
+- Azure SQL synthetic initialization completed.
+- Warehouse fact tables contain rows.
+- Aggregate privacy views expose no group smaller than 11.
+- The Direct Lake semantic model and Data Agent exist in the dedicated workspace.
+
+Known limitations:
+
+- Fabric Ontology creation returns `FeatureNotAvailable` for this tenant/capacity.
+- Attaching an ontology to a Data Agent remains a portal-only Preview workflow.
+- Official REST APIs do not provide supported from-scratch visual report authoring, so
+  the report item is not created.
+
+The F8 capacity is paused after validation to control cost.

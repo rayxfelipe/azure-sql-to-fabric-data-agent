@@ -29,7 +29,7 @@ IF EXISTS
 )
     THROW 51001, 'Non-synthetic row detected.', 1;
 
-SELECT 'Facilities' AS EntityName, COUNT_BIG(*) AS RowCount FROM health.Facilities
+SELECT 'Facilities' AS EntityName, COUNT_BIG(*) AS SampleRowCount FROM health.Facilities
 UNION ALL SELECT 'Programs', COUNT_BIG(*) FROM health.Programs
 UNION ALL SELECT 'Clients', COUNT_BIG(*) FROM health.Clients
 UNION ALL SELECT 'Appointments', COUNT_BIG(*) FROM health.Appointments

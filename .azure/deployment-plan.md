@@ -1,6 +1,6 @@
 # Azure Deployment Plan
 
-> **Status:** Validated
+> **Status:** Deployed
 
 Generated: 2026-10-07
 
@@ -166,6 +166,7 @@ Validated on `2026-10-07T18:26:58-07:00`.
 - **Status:** Verified
 - **Deployer identity:** Key Vault Secrets Officer, scoped to the project Key Vault, for post-deployment secret retrieval and administration.
 - **Azure SQL managed identity:** No Azure data-plane role is required. The Fabric deployment script grants it Contributor on the dedicated Fabric workspace because Microsoft documents workspace role assignment as the REST alternative to the portal-only mirrored-item permission.
+- **Fabric SQL identity:** Dedicated single-tenant service principal with no API permissions; configured as the Entra-only SQL administrator. Its sole 180-day credential is stored only in the encrypted Fabric connection.
 - **Deployment caller:** Inherited Owner was verified at the tenant management-group scope.
 - **Issues:** None.
 
@@ -184,16 +185,15 @@ Validated on `2026-10-07T18:26:58-07:00`.
 
 ---
 
-## 12. Deployment Attempt
+## 12. Deployment Result
 
-- **Timestamp:** `2026-10-08T01:28:49Z`
-- **Status:** Azure foundation deployed; Fabric completion blocked by an identity prerequisite.
+- **Completed:** `2026-10-08`
+- **Status:** Deployed and validated with documented feature limitations.
 - **Policy:** `AzureSQL_WithoutAzureADOnlyAuthentication_Deny` in the `MCAPSGovDenyPolicies` initiative.
-- **Resolution:** The design was changed to Entra-only Azure SQL with the authenticated user as administrator and an OAuth2 organizational-account Fabric connection.
+- **Resolution:** The design uses Entra-only Azure SQL, private networking, a Fabric VNet Data Gateway, and a dedicated service principal.
 - **Second policy:** Tenant governance also enforced private-only Azure SQL networking. The deployment added a VNet, private endpoint, private DNS, and a subnet delegated to `Microsoft.PowerPlatform/vnetaccesslinks`.
-- **Fabric limitation:** The live Connections API rejected OAuth2 for `VirtualNetworkGateway` with `OAuth2CredentialsNotSupportedForConnection`. Its supported credentials are Basic, OAuth2, and ServicePrincipal, but OAuth2 is unavailable for this connectivity type and Basic is prohibited by Entra-only policy.
-- **Deployed:** Key Vault, Entra-only S3 Azure SQL server/database, private networking, dedicated Fabric workspace, and Fabric VNet data gateway.
-- **Not created:** Fabric connection, mirrored database, loaded schema/data, Warehouse, semantic model, report, ontology, and Data Agent.
-- **Continuation requirement:** Supply an existing tenant service principal credential. Creating a new tenant identity was not attempted because it is outside the approved resource-group/workspace boundary.
-- **Capacity safety:** `fabriccapacitydemo001b` remains paused.
+- **Deployed:** Azure foundation, deterministic synthetic SQL data, private Fabric connection, running mirror, loaded Warehouse, pipelines, Direct Lake semantic model, and Data Agent.
+- **Validated:** Mirroring `Running`; Warehouse facts nonempty; small-cell threshold of 11 enforced.
+- **Unavailable:** Ontology API returned `FeatureNotAvailable` for this tenant/capacity. Supported REST APIs do not provide from-scratch visual report authoring.
+- **Capacity safety:** `fabriccapacitydemo001b` was paused after validation.
 - **Policy bypass:** None attempted.

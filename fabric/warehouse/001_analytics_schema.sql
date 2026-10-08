@@ -1,5 +1,13 @@
-CREATE SCHEMA analytics;
+IF SCHEMA_ID('analytics') IS NULL
+    EXEC('CREATE SCHEMA analytics');
 GO
+
+DROP TABLE IF EXISTS analytics.FactCapacity;
+DROP TABLE IF EXISTS analytics.FactReferral;
+DROP TABLE IF EXISTS analytics.FactAppointment;
+DROP TABLE IF EXISTS analytics.DimClientSegment;
+DROP TABLE IF EXISTS analytics.DimProgram;
+DROP TABLE IF EXISTS analytics.DimFacility;
 
 CREATE TABLE analytics.DimFacility
 (
