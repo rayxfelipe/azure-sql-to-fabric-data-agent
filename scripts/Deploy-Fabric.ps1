@@ -427,7 +427,7 @@ catch {
     if ($_.Exception.Message -notmatch 'FeatureNotAvailable|feature is not available') {
         throw
     }
-    $ontologyStatus = 'Not created: Ontology preview is not enabled for this tenant or capacity.'
+    $ontologyStatus = 'Not created: automated creation returned FeatureNotAvailable. Verify the Users can create Fabric items and Users can create ontology (preview) items tenant settings for the deployment identity or capacity.'
     Write-Warning $ontologyStatus
 }
 

@@ -194,6 +194,6 @@ Validated on `2026-10-07T18:26:58-07:00`.
 - **Second policy:** Tenant governance also enforced private-only Azure SQL networking. The deployment added a VNet, private endpoint, private DNS, and a subnet delegated to `Microsoft.PowerPlatform/vnetaccesslinks`.
 - **Deployed:** Azure foundation, deterministic synthetic SQL data, private Fabric connection, running mirror, loaded Warehouse, pipelines, Direct Lake semantic model, and Data Agent.
 - **Validated:** Mirroring `Running`; Warehouse facts nonempty; small-cell threshold of 11 enforced.
-- **Not automated:** Ontology creation returned `FeatureNotAvailable` for the target workspace; Ontology is available elsewhere in the tenant, so this is not a confirmed tenant-wide limitation. Supported REST APIs do not provide from-scratch visual report authoring.
+- **Blocked by scoped setting:** Ontology creation returned `FeatureNotAvailable`, and the portal confirmed that the required Ontology creation tenant setting is not enabled for this workspace's current user or capacity scope. Ontology is available elsewhere in the tenant, so this is not a tenant-wide feature limitation. Supported REST APIs do not provide from-scratch visual report authoring.
 - **Capacity safety:** `fabriccapacitydemo001b` was paused after validation.
 - **Policy bypass:** None attempted.

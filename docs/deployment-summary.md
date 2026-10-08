@@ -45,9 +45,12 @@ Workspace: `ws-e2e-sql-to-fabricagent`
 ## Known Limitations
 
 - Automated Ontology creation returned `FeatureNotAvailable` for the target workspace.
-  Because Ontology is available in another workspace in the same tenant, this result
-  does not establish a tenant-wide limitation. Portal availability and differences in
-  capacity, region, or workspace eligibility require separate verification.
+  Portal creation confirmed that the required Ontology creation tenant setting is not
+  enabled for this workspace's current user or capacity scope. Because Ontology is
+  available in another workspace in the same tenant, this is not a tenant-wide feature
+  limitation. A Fabric administrator must enable **Users can create Fabric items** and
+  **Users can create ontology (preview) items** for the deployment identity, or delegate
+  the settings to `fabriccapacitydemo001b`.
 - Ontology attachment to Data Agent is a portal-only Preview workflow.
 - A Power BI report was not generated because supported Fabric REST APIs require an
   existing report definition and do not document from-scratch visual authoring.

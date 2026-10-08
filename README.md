@@ -4,9 +4,11 @@ An end-to-end demonstration of a public-health analytics solution that moves syn
 
 > [!IMPORTANT]
 > The private Azure SQL-to-Fabric data path is deployed and validated with synthetic
-> data. Automated Ontology creation returned `FeatureNotAvailable` for the target
-> workspace; this does not imply that Ontology is unavailable tenant-wide. From-scratch
-> report authoring remains unavailable through the supported automation APIs.
+> data. Automated Ontology creation returned `FeatureNotAvailable`, and portal creation
+> confirmed that the required Ontology tenant setting is not enabled for this workspace's
+> current user or capacity scope. This does not imply that Ontology is unavailable
+> tenant-wide. From-scratch report authoring remains unavailable through the supported
+> automation APIs.
 
 ## Scenario
 
@@ -190,7 +192,7 @@ This structure is provisional and will be adjusted to match the deployment and s
 - [x] Create the Fabric Warehouse and transformation pipeline
 - [x] Build the Direct Lake semantic model
 - [ ] Create the Power BI demonstration report (definition artifacts require supported visual authoring)
-- [ ] Generate and curate the Fabric IQ Ontology (automated creation for the target workspace returned `FeatureNotAvailable`; portal creation may still be available)
+- [ ] Generate and curate the Fabric IQ Ontology (requires a Fabric administrator to enable the creation tenant settings for the current user or delegate them to this capacity)
 - [x] Create and configure the Fabric Data Agent
 - [x] Add privacy, permission, data-quality, and deployment validation
 - [x] Document deployment, demonstration, and shutdown procedures
@@ -242,10 +244,13 @@ Validation confirmed:
 Known limitations:
 
 - Automated Fabric Ontology creation returned `FeatureNotAvailable` for the target
-  workspace. Ontology is available elsewhere in the same tenant, so this result should
-  not be interpreted as a tenant-wide feature limitation. Portal creation in the target
-  workspace and differences in capacity, region, or workspace eligibility require
-  separate verification.
+  workspace. Portal creation displayed: `Creating Ontology (preview) is not currently
+  supported in this workspace. Ask your Fabric admin to turn on the setting allowing
+  users to create Ontology (preview).` Ontology is available elsewhere in the same
+  tenant, so this is a tenant-setting scope issue rather than a tenant-wide feature
+  limitation. A Fabric administrator must enable **Users can create Fabric items** and
+  **Users can create ontology (preview) items** for the deployment identity, or delegate
+  the settings to `fabriccapacitydemo001b`.
 - Attaching an ontology to a Data Agent remains a portal-only Preview workflow.
 - Official REST APIs do not provide supported from-scratch visual report authoring, so
   the report item is not created.
