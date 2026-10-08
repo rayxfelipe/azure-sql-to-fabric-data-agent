@@ -4,11 +4,11 @@ An end-to-end demonstration of a public-health analytics solution that moves syn
 
 > [!IMPORTANT]
 > The private Azure SQL-to-Fabric data path is deployed and validated with synthetic
-> data. Automated Ontology creation returned `FeatureNotAvailable`, and portal creation
-> confirmed that the required Ontology tenant setting is not enabled for this workspace's
-> current user or capacity scope. This does not imply that Ontology is unavailable
-> tenant-wide. From-scratch report authoring remains unavailable through the supported
-> automation APIs.
+> data. A generation-2 community-health Ontology is deployed in a companion Fabric IQ
+> workspace on the West US F8 capacity. It is modeled but unbound because the current
+> Ontology preview requires a compatible Lakehouse or Eventhouse source; the live Data
+> Agent remains grounded in the Warehouse-backed semantic model. From-scratch report
+> authoring remains unavailable through the supported automation APIs.
 
 ## Scenario
 
@@ -59,8 +59,8 @@ flowchart LR
     B -->|Fabric Mirroring| C[OneLake Mirrored Database]
     C -->|Fabric Data Pipeline| D[Fabric Warehouse<br/>OLAP Star Schema]
     D -->|Direct Lake| E[Power BI Semantic Model]
-    E --> F[Fabric IQ Ontology]
-    F --> G[Fabric Data Agent]
+    E --> G[Fabric Data Agent]
+    F[Fabric IQ Ontology<br/>Modeled in companion workspace]
     E --> H[Power BI Report]
 ```
 
@@ -83,17 +83,19 @@ Additional Azure services will be introduced only if they are required by the fi
 
 ### Microsoft Fabric
 
-A dedicated Fabric workspace will contain:
+The primary Fabric workspace contains:
 
 - An Azure SQL mirrored database
 - A Fabric Warehouse
 - A Fabric Data Pipeline
 - A Direct Lake semantic model
 - A Power BI report
-- A Fabric IQ Ontology
 - A Fabric Data Agent
 
-The workspace will use an existing F8 Fabric capacity. The capacity can be paused when the environment is not in use to limit cost.
+A companion workspace, `ws-e2e-sql-to-fabricagent-iq`, contains the generation-2
+Fabric IQ Ontology. The split is required because the primary workspace is in West US 3
+and cannot be reassigned across regions to the Ontology-enabled West US capacity.
+The capacities can be paused when the environment is not in use to limit cost.
 
 ## Planned Data Model
 
@@ -192,7 +194,7 @@ This structure is provisional and will be adjusted to match the deployment and s
 - [x] Create the Fabric Warehouse and transformation pipeline
 - [x] Build the Direct Lake semantic model
 - [ ] Create the Power BI demonstration report (definition artifacts require supported visual authoring)
-- [ ] Generate and curate the Fabric IQ Ontology (requires a Fabric administrator to enable the creation tenant settings for the current user or delegate them to this capacity)
+- [x] Generate and curate the Fabric IQ Ontology in the companion Fabric IQ workspace
 - [x] Create and configure the Fabric Data Agent
 - [x] Add privacy, permission, data-quality, and deployment validation
 - [x] Document deployment, demonstration, and shutdown procedures
@@ -243,14 +245,11 @@ Validation confirmed:
 
 Known limitations:
 
-- Automated Fabric Ontology creation returned `FeatureNotAvailable` for the target
-  workspace. Portal creation displayed: `Creating Ontology (preview) is not currently
-  supported in this workspace. Ask your Fabric admin to turn on the setting allowing
-  users to create Ontology (preview).` Ontology is available elsewhere in the same
-  tenant, so this is a tenant-setting scope issue rather than a tenant-wide feature
-  limitation. A Fabric administrator must enable **Users can create Fabric items** and
-  **Users can create ontology (preview) items** for the deployment identity, or delegate
-  the settings to `fabriccapacitydemo001b`.
+- The generation-2 Ontology is deployed in `ws-e2e-sql-to-fabricagent-iq` on
+  `fabriccapacitydemo001`. It contains seven community-health entity types and six
+  relationships. It is currently ontology-first and unbound because its companion
+  workspace has no compatible Lakehouse or Eventhouse source. The Warehouse-backed
+  semantic model and live Data Agent remain in the primary workspace.
 - Attaching an ontology to a Data Agent remains a portal-only Preview workflow.
 - Official REST APIs do not provide supported from-scratch visual report authoring, so
   the report item is not created.

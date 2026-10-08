@@ -192,8 +192,8 @@ Validated on `2026-10-07T18:26:58-07:00`.
 - **Policy:** `AzureSQL_WithoutAzureADOnlyAuthentication_Deny` in the `MCAPSGovDenyPolicies` initiative.
 - **Resolution:** The design uses Entra-only Azure SQL, private networking, a Fabric VNet Data Gateway, and a dedicated service principal.
 - **Second policy:** Tenant governance also enforced private-only Azure SQL networking. The deployment added a VNet, private endpoint, private DNS, and a subnet delegated to `Microsoft.PowerPlatform/vnetaccesslinks`.
-- **Deployed:** Azure foundation, deterministic synthetic SQL data, private Fabric connection, running mirror, loaded Warehouse, pipelines, Direct Lake semantic model, and Data Agent.
+- **Deployed:** Azure foundation, deterministic synthetic SQL data, private Fabric connection, running mirror, loaded Warehouse, pipelines, Direct Lake semantic model, Data Agent, and a generation-2 Ontology in the companion Fabric IQ workspace.
 - **Validated:** Mirroring `Running`; Warehouse facts nonempty; small-cell threshold of 11 enforced.
-- **Blocked by scoped setting:** Ontology creation returned `FeatureNotAvailable`, and the portal confirmed that the required Ontology creation tenant setting is not enabled for this workspace's current user or capacity scope. Ontology is available elsewhere in the tenant, so this is not a tenant-wide feature limitation. Supported REST APIs do not provide from-scratch visual report authoring.
-- **Capacity safety:** `fabriccapacitydemo001b` was paused after validation.
+- **Ontology topology:** The primary West US 3 workspace cannot be reassigned across regions to the West US capacity. `CCSF_Community_Health_Ontology` is deployed in `ws-e2e-sql-to-fabricagent-iq` on `fabriccapacitydemo001`; it is modeled but unbound because no compatible Lakehouse or Eventhouse source is present there.
+- **Capacity state:** `fabriccapacitydemo001` and `fabriccapacitydemo001b` are active for the customer demonstration.
 - **Policy bypass:** None attempted.

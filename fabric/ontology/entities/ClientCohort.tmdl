@@ -1,0 +1,54 @@
+/// Aggregate-only client cohort defined by neighborhood, age band, and preferred language. No direct identifiers are modeled. Groups below 11 are suppressed.
+entity ClientCohort
+	lineageTag: 9a82f604-6237-4eed-9575-dba36c627890
+
+	/// Neighborhood segment used to define the cohort.
+	property Neighborhood
+		dataType: string
+		lineageTag: 2337cb09-a0f4-4e60-b454-3f400a3bd71d
+
+		synonym area
+
+		synonym district
+
+		synonym community
+
+	/// Age range segment used to define the cohort.
+	property AgeBand
+		dataType: string
+		lineageTag: fa1e095f-5e64-48b6-b308-c8d40685cfd3
+
+		synonym 'age group'
+
+		synonym 'age range'
+
+		synonym band
+
+	/// Preferred language segment used to define the cohort.
+	property PreferredLanguage
+		dataType: string
+		lineageTag: 3661d37b-7935-401f-8a72-c902453a5f9b
+
+		synonym language
+
+		synonym 'primary language'
+
+		synonym 'spoken language'
+
+	synonym Cohort
+
+	synonym 'Population Segment'
+
+	synonym 'Client Segment'
+
+	synonym 'Community Segment'
+
+	synonym 'Aggregate Cohort'
+
+	annotation syntheticOnly = true
+
+	annotation aggregateOnly = true
+
+	annotation suppressionThreshold = 11
+
+	annotation suppressionRule = Suppress groups below 11

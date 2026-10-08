@@ -12,7 +12,9 @@ $ProgressPreference = 'SilentlyContinue'
 
 $FabricBaseUri = 'https://api.fabric.microsoft.com/v1'
 $CapacityId = 'c23c22ae-da71-49b2-b620-8612df1259dc'
+$OntologyCapacityId = 'cbf0f4f7-7c0a-430e-8c2f-ac86db2d4f69'
 $WorkspaceName = 'ws-e2e-sql-to-fabricagent'
+$OntologyWorkspaceName = 'ws-e2e-sql-to-fabricagent-iq'
 $SessionDirectory = Join-Path $PSScriptRoot '..\.copilot-azure\sessions\3af2326f-c8f1-4018-b73a-1542e5e709c0'
 $AzureDeploymentFile = Join-Path $SessionDirectory 'azure-deployment.json'
 $StateFile = Join-Path $SessionDirectory 'fabric-deployment.json'
@@ -164,6 +166,17 @@ if (-not $workspace) {
 $workspaceId = $workspace.id
 
 Invoke-Fabric -Method POST -Path "workspaces/$workspaceId/assignToCapacity" -Body @{ capacityId = $CapacityId } | Out-Null
+
+$ontologyWorkspace = @($workspaceList.value) | Where-Object displayName -eq $OntologyWorkspaceName | Select-Object -First 1
+if (-not $ontologyWorkspace) {
+    $ontologyWorkspace = Invoke-Fabric -Method POST -Path 'workspaces' -Body @{
+        displayName = $OntologyWorkspaceName
+        description = 'Companion Fabric IQ workspace for the synthetic CCSF DPH SQL-to-Fabric demonstration.'
+    }
+}
+Invoke-Fabric -Method POST -Path "workspaces/$($ontologyWorkspace.id)/assignToCapacity" -Body @{
+    capacityId = $OntologyCapacityId
+} | Out-Null
 
 $gateways = Invoke-Fabric -Method GET -Path 'gateways'
 $gatewayName = 'gw-e2e-sql-to-fabricagent'
@@ -418,8 +431,8 @@ Get-ChildItem -LiteralPath $ontologyRoot -File -Recurse | ForEach-Object {
 $ontology = $null
 $ontologyStatus = 'Created'
 try {
-    $ontology = New-DefinitionItem -WorkspaceId $workspaceId -Collection 'ontologies' `
-        -DisplayName 'Community Health Ontology' `
+    $ontology = New-DefinitionItem -WorkspaceId $ontologyWorkspace.id -Collection 'ontologies' `
+        -DisplayName 'CCSF_Community_Health_Ontology' `
         -Description 'Synthetic community-health access domain ontology.' `
         -Parts $ontologyParts
 }
@@ -449,6 +462,9 @@ $dataAgent = New-DefinitionItem -WorkspaceId $workspaceId -Collection 'dataAgent
     workspaceId = $workspaceId
     workspaceName = $WorkspaceName
     capacityId = $CapacityId
+    ontologyWorkspaceId = $ontologyWorkspace.id
+    ontologyWorkspaceName = $OntologyWorkspaceName
+    ontologyCapacityId = $OntologyCapacityId
     gatewayId = $gateway.id
     sqlConnectionId = $sqlConnection.id
     sourceInitializationPipelineId = $sourceInitPipeline.id
@@ -461,7 +477,7 @@ $dataAgent = New-DefinitionItem -WorkspaceId $workspaceId -Collection 'dataAgent
     ontologyStatus = $ontologyStatus
     dataAgentId = $dataAgent.id
     reportStatus = 'Not created: official REST APIs require an existing report definition; from-scratch visual authoring is not documented.'
-    ontologyAgentAttachmentStatus = 'Not attached: ontology datasource attachment is portal-only Preview and not supported by the Data Agent definition schema.'
+    ontologyAgentAttachmentStatus = 'Not attached: the generation-2 Ontology is modeled but unbound because the companion workspace has no compatible Lakehouse or Eventhouse source. The Warehouse-backed semantic model remains the Data Agent source.'
     deployedAt = [DateTimeOffset]::Now.ToString('o')
 } | ConvertTo-Json | Set-Content -LiteralPath $StateFile -Encoding utf8
 

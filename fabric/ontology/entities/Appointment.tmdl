@@ -1,0 +1,84 @@
+/// Synthetic appointment record representing a scheduled access or service visit. Synthetic-only and aggregate-first; no patient or client direct identifiers are modeled.
+entity Appointment
+	lineageTag: 05156ac7-5473-492c-9d01-c05d2eb7ae31
+	keyProperty: AppointmentId
+
+	/// Synthetic appointment identifier.
+	property AppointmentId
+		dataType: string
+		lineageTag: 5a84290a-a62f-4bc0-84a8-757958b57276
+
+		synonym 'appointment id'
+
+		synonym 'visit id'
+
+		synonym 'booking id'
+
+	/// Scheduled or recorded date and time of the appointment.
+	property AppointmentDate
+		dataType: dateTime
+		lineageTag: 5ccea9f1-4026-4d4d-9e5b-02358f83beae
+
+		synonym 'appointment time'
+
+		synonym 'visit date'
+
+		synonym 'scheduled date'
+
+	/// Appointment status such as scheduled, completed, canceled, rescheduled, or missed.
+	property Status
+		dataType: string
+		lineageTag: d7b80a3e-daef-4aaf-9b20-0fe74b68dd3b
+
+		synonym 'appointment status'
+
+		synonym 'visit status'
+
+		synonym 'booking status'
+
+	/// Number of days waited before the appointment occurred or was completed.
+	property WaitDays
+		dataType: int64
+		lineageTag: 1ece9c1b-c66f-4366-aebd-6789111c4489
+
+		synonym 'wait time days'
+
+		synonym 'days waited'
+
+		synonym 'delay days'
+
+	/// Indicates whether the appointment was a no-show.
+	property IsNoShow
+		dataType: boolean
+		lineageTag: 74f16601-3dc2-429c-b82b-4771a79a73fe
+
+		synonym 'no show'
+
+		synonym 'did not attend'
+
+		synonym dna
+
+	/// Indicates that the record is synthetic demonstration data.
+	property IsSynthetic
+		dataType: boolean
+		lineageTag: 31ed345a-5759-49ee-80c1-61ca30a5fb3e
+
+		synonym 'synthetic flag'
+
+		synonym 'demo flag'
+
+		synonym 'test data flag'
+
+	synonym Visit
+
+	synonym 'Encounter Appointment'
+
+	synonym Booking
+
+	synonym 'Scheduled Visit'
+
+	synonym 'Access Appointment'
+
+	annotation syntheticOnly = true
+
+	annotation aggregateFirst = true

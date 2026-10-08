@@ -1,0 +1,73 @@
+/// Synthetic referral record generated from an appointment when follow-on support or coordination is needed. Synthetic-only and aggregate-first; no direct identifiers beyond the referral identifier property are modeled.
+entity Referral
+	lineageTag: c9915b98-d9c7-4a14-8137-5be1d8724281
+	keyProperty: ReferralId
+
+	/// Synthetic referral identifier.
+	property ReferralId
+		dataType: string
+		lineageTag: 25e1e54b-8603-41a2-8f4b-c91ab808d735
+
+		synonym 'referral id'
+
+		synonym 'case id'
+
+		synonym 'handoff id'
+
+	/// Date and time the referral was created or recorded.
+	property ReferralDate
+		dataType: dateTime
+		lineageTag: 6a2b24c8-68d6-4fa8-8f45-5401974d8e68
+
+		synonym 'referral time'
+
+		synonym 'case date'
+
+		synonym 'handoff date'
+
+	/// Referral status such as open, pending, completed, closed, or canceled.
+	property Status
+		dataType: string
+		lineageTag: 8987db00-49ea-41e1-b146-087f9541e7ce
+
+		synonym 'referral status'
+
+		synonym 'case status'
+
+		synonym 'handoff status'
+
+	/// Number of days from referral creation to completion or closure.
+	property DaysToCompletion
+		dataType: int64
+		lineageTag: 80a313a4-a6cc-45b9-aa7b-c4c186950594
+
+		synonym 'completion days'
+
+		synonym 'days open'
+
+		synonym 'time to completion'
+
+	/// Indicates that the record is synthetic demonstration data.
+	property IsSynthetic
+		dataType: boolean
+		lineageTag: 62cf7888-3eff-4f78-9719-aa2043a5cca2
+
+		synonym 'synthetic flag'
+
+		synonym 'demo flag'
+
+		synonym 'test data flag'
+
+	synonym 'Referral Case'
+
+	synonym 'Referral Record'
+
+	synonym 'Warm Handoff'
+
+	synonym 'Care Referral'
+
+	synonym 'Service Referral'
+
+	annotation syntheticOnly = true
+
+	annotation aggregateFirst = true

@@ -1,0 +1,91 @@
+/// Represents that a facility offers or hosts a program.
+entityRelationship FacilityOffersProgram
+	label: FacilityOffersProgram
+	lineageTag: 3b5ee795-6dc0-4df3-9418-b054ac938b1d
+	fromEntity: Facility
+	toEntity: Program
+
+	synonym offers
+
+	synonym hosts
+
+	synonym provides
+
+	annotation syntheticOnly = true
+
+/// Represents that a program schedules appointments.
+entityRelationship ProgramSchedulesAppointment
+	label: ProgramSchedulesAppointment
+	lineageTag: e89b81de-74ba-4831-b438-3cee080020a2
+	fromEntity: Program
+	toEntity: Appointment
+
+	synonym schedules
+
+	synonym books
+
+	synonym 'creates appointments'
+
+	annotation syntheticOnly = true
+
+/// Represents the aggregate relationship between a client cohort and its appointments.
+entityRelationship ClientCohortHasAppointment
+	label: ClientCohortHasAppointment
+	lineageTag: 55c05ab5-fd6e-4fb8-90c9-7676c7c19d10
+	fromEntity: ClientCohort
+	toEntity: Appointment
+
+	synonym 'has appointment'
+
+	synonym 'includes appointment'
+
+	synonym 'appointment for cohort'
+
+	annotation syntheticOnly = true
+
+	annotation aggregateOnly = true
+
+/// Represents that an appointment may generate a referral.
+entityRelationship AppointmentMayGenerateReferral
+	label: AppointmentMayGenerateReferral
+	lineageTag: f794b26f-8299-41b1-b053-3b112ac1dcff
+	fromEntity: Appointment
+	toEntity: Referral
+
+	synonym generates
+
+	synonym 'may create'
+
+	synonym 'leads to referral'
+
+	annotation syntheticOnly = true
+
+/// Represents that a referral results in a recorded outcome.
+entityRelationship ReferralResultsInOutcome
+	label: ReferralResultsInOutcome
+	lineageTag: 4edbdfa1-c005-4067-8c88-a8f52e6442f7
+	fromEntity: Referral
+	toEntity: Outcome
+
+	synonym 'results in'
+
+	synonym yields
+
+	synonym 'produces outcome'
+
+	annotation syntheticOnly = true
+
+/// Represents capacity snapshots captured for a facility over time.
+entityRelationship FacilityHasCapacitySnapshot
+	label: FacilityHasCapacitySnapshot
+	lineageTag: 692368bb-37bd-4f18-8c84-f64e4e1c3b5f
+	fromEntity: Facility
+	toEntity: CapacitySnapshot
+
+	synonym 'has snapshot'
+
+	synonym 'tracks capacity'
+
+	synonym 'snapshot for facility'
+
+	annotation syntheticOnly = true

@@ -1,0 +1,84 @@
+/// Synthetic facility capacity snapshot captured at a point in time. Synthetic-only and aggregate-first; no direct person-level identifiers are modeled.
+entity CapacitySnapshot
+	lineageTag: c690a1d4-5c3d-4b08-a011-f6b4739c59b3
+	keyProperty: SnapshotId
+
+	/// Synthetic capacity snapshot identifier.
+	property SnapshotId
+		dataType: string
+		lineageTag: 5c79e4e3-59e6-4a6e-aa49-c2b4e1b37939
+
+		synonym 'snapshot id'
+
+		synonym 'capacity snapshot id'
+
+		synonym 'as of id'
+
+	/// Date and time the capacity snapshot was recorded.
+	property SnapshotDate
+		dataType: dateTime
+		lineageTag: af18de75-b17d-4a0d-8ade-970b91294b32
+
+		synonym 'snapshot time'
+
+		synonym 'as of date'
+
+		synonym 'capture date'
+
+	/// Number of slots available at the snapshot time.
+	property AvailableSlots
+		dataType: int64
+		lineageTag: 8358a055-b6d3-44a4-96fa-020722841046
+
+		synonym 'open slots'
+
+		synonym 'available capacity'
+
+		synonym 'free slots'
+
+	/// Number of slots booked at the snapshot time.
+	property BookedSlots
+		dataType: int64
+		lineageTag: 326b99df-9218-408a-aee5-4a3e944b28f9
+
+		synonym 'reserved slots'
+
+		synonym 'filled slots'
+
+		synonym 'occupied slots'
+
+	/// Booked capacity divided by total capacity, expressed as a decimal fraction.
+	property UtilizationRate
+		dataType: double
+		lineageTag: 5b53bb76-5376-40a4-ba54-fb805e9652c9
+
+		synonym utilization
+
+		synonym 'occupancy rate'
+
+		synonym 'fill rate'
+
+	/// Indicates that the record is synthetic demonstration data.
+	property IsSynthetic
+		dataType: boolean
+		lineageTag: 0de28792-7312-4db6-ae3f-70d48ce6311e
+
+		synonym 'synthetic flag'
+
+		synonym 'demo flag'
+
+		synonym 'test data flag'
+
+	synonym Capacity
+
+	synonym 'Utilization Snapshot'
+
+	synonym 'Facility Snapshot'
+
+	synonym 'Availability Snapshot'
+
+	synonym 'Capacity Summary'
+
+	annotation syntheticOnly = true
+
+	annotation aggregateFirst = true

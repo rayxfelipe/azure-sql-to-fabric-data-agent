@@ -21,7 +21,9 @@ All data is synthetic. No real PHI or direct identifiers are present.
 
 ## Microsoft Fabric
 
-Workspace: `ws-e2e-sql-to-fabricagent`
+Primary workspace: `ws-e2e-sql-to-fabricagent`
+
+Fabric IQ companion workspace: `ws-e2e-sql-to-fabricagent-iq`
 
 | Item | ID | State |
 |------|----|-------|
@@ -33,6 +35,7 @@ Workspace: `ws-e2e-sql-to-fabricagent`
 | Analytics pipeline | `c12039f9-7d16-427a-8c0c-9d803f0ff68c` | Created |
 | Semantic model | `08d658a3-a6ce-4b13-a821-676486f297cb` | Created |
 | Data Agent | `cbc7c698-fa5b-4a48-bc51-9b80d6aca8d6` | Created |
+| Ontology | `8c3edfcd-1792-4dca-a803-fb302b7fcfd0` | Generation 2; 7 entities; 6 relationships |
 
 ## Validation
 
@@ -40,18 +43,16 @@ Workspace: `ws-e2e-sql-to-fabricagent`
 - Warehouse facts: nonempty
 - Small-cell suppression: no exposed aggregate below 11
 - Local API: health, readiness, and synthetic-data endpoints passed
-- Fabric F8 capacity: paused after validation
+- Fabric F8 capacities: both active for the customer demonstration
 
 ## Known Limitations
 
-- Automated Ontology creation returned `FeatureNotAvailable` for the target workspace.
-  Portal creation confirmed that the required Ontology creation tenant setting is not
-  enabled for this workspace's current user or capacity scope. Because Ontology is
-  available in another workspace in the same tenant, this is not a tenant-wide feature
-  limitation. A Fabric administrator must enable **Users can create Fabric items** and
-  **Users can create ontology (preview) items** for the deployment identity, or delegate
-  the settings to `fabriccapacitydemo001b`.
-- Ontology attachment to Data Agent is a portal-only Preview workflow.
+- The primary workspace cannot move from the West US 3 capacity to the West US capacity;
+  Fabric rejected the cross-region reassignment. The Ontology therefore uses a companion
+  workspace on `fabriccapacitydemo001`.
+- The Ontology is modeled but unbound. The current workspace has no compatible Lakehouse
+  or Eventhouse source, so the Warehouse-backed semantic model remains the live Data
+  Agent source.
 - A Power BI report was not generated because supported Fabric REST APIs require an
   existing report definition and do not document from-scratch visual authoring.
 

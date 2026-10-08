@@ -1,0 +1,73 @@
+/// Synthetic outcome record capturing a non-clinical access or service result, such as completion, resolution, linkage, or follow-up status. No diagnoses or direct identifiers are modeled.
+entity Outcome
+	lineageTag: 1741b6c9-7c14-47a8-a2b4-a5d7749e23e3
+	keyProperty: OutcomeId
+
+	/// Synthetic outcome identifier.
+	property OutcomeId
+		dataType: string
+		lineageTag: 7d858d13-6160-478a-8068-1bdd9343c602
+
+		synonym 'outcome id'
+
+		synonym 'result id'
+
+		synonym 'resolution id'
+
+	/// Non-clinical outcome classification.
+	property OutcomeType
+		dataType: string
+		lineageTag: d9054355-0720-461c-9a15-9afd471fb34b
+
+		synonym 'result type'
+
+		synonym 'service outcome type'
+
+		synonym 'resolution type'
+
+	/// Recorded outcome value, which may be a text label, numeric measure, or simple coded result depending on the synthetic scenario.
+	property OutcomeValue
+		dataType: variant
+		lineageTag: 8f63c668-ace4-425e-b070-76850a82f616
+
+		synonym 'result value'
+
+		synonym 'outcome measure'
+
+		synonym value
+
+	/// Date and time the outcome was recorded.
+	property RecordedDate
+		dataType: dateTime
+		lineageTag: a9efb43a-7e19-467e-ab83-c42eddf0cb0a
+
+		synonym 'recorded time'
+
+		synonym 'result date'
+
+		synonym 'capture date'
+
+	/// Indicates that the record is synthetic demonstration data.
+	property IsSynthetic
+		dataType: boolean
+		lineageTag: a6642aff-34ad-4ed4-acdf-98f0f3ebacde
+
+		synonym 'synthetic flag'
+
+		synonym 'demo flag'
+
+		synonym 'test data flag'
+
+	synonym Result
+
+	synonym 'Access Outcome'
+
+	synonym 'Service Outcome'
+
+	synonym 'Follow-up Outcome'
+
+	synonym Resolution
+
+	annotation syntheticOnly = true
+
+	annotation aggregateFirst = true

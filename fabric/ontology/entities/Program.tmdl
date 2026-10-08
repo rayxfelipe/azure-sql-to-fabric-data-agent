@@ -1,0 +1,51 @@
+/// Synthetic access or service program offered through a facility. Synthetic-only and aggregate-first; no direct person-level identifiers are modeled.
+entity Program
+	lineageTag: fca456d4-4e9a-40ba-8cf2-74ebed2b5e2a
+	keyProperty: ProgramId
+
+	/// Synthetic program identifier.
+	property ProgramId
+		dataType: string
+		lineageTag: 65c66ee0-8105-427d-a8f1-8ad6e375c026
+
+		synonym 'program id'
+
+		synonym 'service id'
+
+		synonym 'initiative id'
+
+	/// Program display name.
+	property ProgramName
+		dataType: string
+		lineageTag: 766c4b64-b51d-4522-833b-e6fcf5f46e72
+
+		synonym 'program name'
+
+		synonym 'service name'
+
+		synonym 'initiative name'
+
+	/// High-level service category for the program, such as screening, enrollment, navigation, outreach, or referral support.
+	property ServiceCategory
+		dataType: string
+		lineageTag: e1769ad6-57fc-401f-84b3-0567ab6694f4
+
+		synonym 'service category'
+
+		synonym 'program category'
+
+		synonym 'service line'
+
+	synonym 'Service Program'
+
+	synonym Initiative
+
+	synonym 'Service Line'
+
+	synonym 'Program Offering'
+
+	synonym 'Access Program'
+
+	annotation syntheticOnly = true
+
+	annotation aggregateFirst = true

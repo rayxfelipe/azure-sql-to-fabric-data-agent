@@ -1,0 +1,64 @@
+/// Synthetic community-health facility or site where access services are offered and capacity is tracked. Synthetic-only and aggregate-first; no direct identifiers beyond the facility identifier property are modeled.
+entity Facility
+	lineageTag: 57e99c19-3b37-4ee2-967e-2327466ddb37
+	keyProperty: FacilityId
+
+	/// Synthetic facility identifier.
+	property FacilityId
+		dataType: string
+		lineageTag: 05882d43-1b49-43ed-b2bd-b6f7f44a24a3
+
+		synonym 'facility id'
+
+		synonym 'site id'
+
+		synonym 'facility code'
+
+	/// Display name of the facility or site.
+	property FacilityName
+		dataType: string
+		lineageTag: 94b8d49b-1180-45bb-a6ef-cba01c4fb982
+
+		synonym 'facility name'
+
+		synonym 'site name'
+
+		synonym 'clinic name'
+
+	/// Neighborhood where the facility is located or primarily serves.
+	property Neighborhood
+		dataType: string
+		lineageTag: daab2166-a15c-4934-90e5-108e0f61c951
+
+		synonym area
+
+		synonym district
+
+		synonym community
+
+	/// Facility classification such as clinic, community center, mobile unit, or partner site.
+	property FacilityType
+		dataType: string
+		lineageTag: ed55bb11-d2e6-4559-973a-54cc3540702c
+
+		synonym 'site type'
+
+		synonym 'location type'
+
+		synonym 'facility category'
+
+		synonym 'provider type'
+
+	synonym 'Health Facility'
+
+	synonym Site
+
+	synonym 'Clinic Site'
+
+	synonym 'Service Site'
+
+	synonym 'Care Facility'
+
+	annotation syntheticOnly = true
+
+	annotation aggregateFirst = true

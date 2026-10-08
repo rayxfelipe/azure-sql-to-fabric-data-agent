@@ -1,3 +1,11 @@
-model Ontology
+model Model
 
-	ref namespace default
+ref entity Facility
+ref entity Program
+ref entity ClientCohort
+ref entity Appointment
+ref entity Referral
+ref entity Outcome
+ref entity CapacitySnapshot
+
+ref namespace default
