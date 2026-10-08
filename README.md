@@ -4,8 +4,9 @@ An end-to-end demonstration of a public-health analytics solution that moves syn
 
 > [!IMPORTANT]
 > The private Azure SQL-to-Fabric data path is deployed and validated with synthetic
-> data. Fabric Ontology and from-scratch report authoring remain unavailable through
-> the enabled tenant features and supported automation APIs.
+> data. Automated Ontology creation returned `FeatureNotAvailable` for the target
+> workspace; this does not imply that Ontology is unavailable tenant-wide. From-scratch
+> report authoring remains unavailable through the supported automation APIs.
 
 ## Scenario
 
@@ -189,7 +190,7 @@ This structure is provisional and will be adjusted to match the deployment and s
 - [x] Create the Fabric Warehouse and transformation pipeline
 - [x] Build the Direct Lake semantic model
 - [ ] Create the Power BI demonstration report (definition artifacts require supported visual authoring)
-- [ ] Generate and curate the Fabric IQ Ontology (tenant returns `FeatureNotAvailable`)
+- [ ] Generate and curate the Fabric IQ Ontology (automated creation for the target workspace returned `FeatureNotAvailable`; portal creation may still be available)
 - [x] Create and configure the Fabric Data Agent
 - [x] Add privacy, permission, data-quality, and deployment validation
 - [x] Document deployment, demonstration, and shutdown procedures
@@ -240,7 +241,11 @@ Validation confirmed:
 
 Known limitations:
 
-- Fabric Ontology creation returns `FeatureNotAvailable` for this tenant/capacity.
+- Automated Fabric Ontology creation returned `FeatureNotAvailable` for the target
+  workspace. Ontology is available elsewhere in the same tenant, so this result should
+  not be interpreted as a tenant-wide feature limitation. Portal creation in the target
+  workspace and differences in capacity, region, or workspace eligibility require
+  separate verification.
 - Attaching an ontology to a Data Agent remains a portal-only Preview workflow.
 - Official REST APIs do not provide supported from-scratch visual report authoring, so
   the report item is not created.
