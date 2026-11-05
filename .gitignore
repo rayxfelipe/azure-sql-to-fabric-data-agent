@@ -12,6 +12,7 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 .venv/
+.venv-demo/
 venv/
 dist/
 build/
@@ -20,3 +21,6 @@ build/
 # Generated deployment outputs
 *.local.json
 infra/main.json
+
+# Local customer correspondence and reference material
+/Reference/

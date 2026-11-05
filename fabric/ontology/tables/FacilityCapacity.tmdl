@@ -1,0 +1,47 @@
+table FacilityCapacity
+	lineageTag: f2a85d93-17d6-435c-bef7-7492750679d0
+	measure 'Capacity Utilization Rate' =
+			DIVIDE(
+			    SUM(FacilityCapacity[BookedSlots]),
+			    SUM(FacilityCapacity[BookedSlots]) + SUM(FacilityCapacity[AvailableSlots])
+			)
+
+	column CapacitySnapshotId
+		lineageTag: 5668f4bd-3bb4-43d5-87fc-2cf04f2d7dfd
+		dataType: int64
+		sourceColumn: CapacitySnapshotId
+	column FacilityId
+		lineageTag: 65630126-933b-42cf-88ea-2b80cfa4966c
+		dataType: int64
+		sourceColumn: FacilityId
+	column FacilityName
+		lineageTag: f321e1b3-9e00-46cd-bdd0-a0eaa0737c47
+		dataType: string
+		sourceColumn: FacilityName
+	column Neighborhood
+		lineageTag: 7ee7ec33-a0e0-40c5-a404-7e69a3e0c0b4
+		dataType: string
+		sourceColumn: Neighborhood
+	column SnapshotDate
+		lineageTag: 23604ae3-3240-4a18-831b-879c16a98c94
+		dataType: dateTime
+		sourceColumn: SnapshotDate
+	column AvailableSlots
+		lineageTag: 685c9aa1-1f19-4cf1-b6f8-04e965c6d0bc
+		dataType: int64
+		sourceColumn: AvailableSlots
+	column BookedSlots
+		lineageTag: 6c751aaf-1aa8-4863-8dc0-06d1cea64ec5
+		dataType: int64
+		sourceColumn: BookedSlots
+	column UtilizationRate
+		lineageTag: 8c68a256-7d9c-4410-a9bc-37e01c0b7599
+		dataType: double
+		sourceColumn: UtilizationRate
+
+	partition FacilityCapacity = entity
+		mode: directLake
+		source
+			entityName: FacilityCapacity
+			schemaName: reporting
+			expressionSource: DatabaseQuery

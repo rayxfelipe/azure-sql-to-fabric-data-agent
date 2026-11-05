@@ -2,10 +2,14 @@ model Model
 
 ref entity Facility
 ref entity Program
-ref entity ClientCohort
-ref entity Appointment
-ref entity Referral
-ref entity Outcome
+ref entity AccessSummary
+ref entity ReferralSummary
 ref entity CapacitySnapshot
 
 ref namespace default
+
+ref table Facilities
+ref table Programs
+ref table CommunityHealthAccess
+ref table ReferralPerformance
+ref table FacilityCapacity

@@ -1,0 +1,65 @@
+table CommunityHealthAccess
+	lineageTag: b879935d-0a0e-4e4c-90c7-f6c2e1456841
+	measure 'Appointments' = SUM(CommunityHealthAccess[AppointmentCount])
+	measure 'Average Wait Days' = DIVIDE(SUM(CommunityHealthAccess[WaitDaysTotal]), [Appointments])
+	measure 'No-Show Rate' = DIVIDE(SUM(CommunityHealthAccess[NoShowCount]), [Appointments])
+
+	column AccessGroupId
+		lineageTag: 9836b833-7cd0-4622-84ba-8a824fe94811
+		dataType: string
+		sourceColumn: AccessGroupId
+	column ProgramId
+		lineageTag: 34651ef2-38f7-45c0-983d-0b96a6420768
+		dataType: int64
+		sourceColumn: ProgramId
+	column FacilityId
+		lineageTag: 5b8a5daa-d4cb-4278-a97a-f6f282b78b98
+		dataType: int64
+		sourceColumn: FacilityId
+	column ScheduledDate
+		lineageTag: d05ec57a-48b2-46e3-9861-f38688d8749b
+		dataType: dateTime
+		sourceColumn: ScheduledDate
+	column ServiceCategory
+		lineageTag: a895762d-e817-46ef-8066-fa88e8272c97
+		dataType: string
+		sourceColumn: ServiceCategory
+	column FacilityNeighborhood
+		lineageTag: 5064f516-5abd-462a-aa56-c257514838c8
+		dataType: string
+		sourceColumn: FacilityNeighborhood
+	column AgeBand
+		lineageTag: 244d1f7c-6d16-4105-bf93-26a89b39f509
+		dataType: string
+		sourceColumn: AgeBand
+	column DemographicGroup
+		lineageTag: c5d63cbb-b4bc-4649-bf36-7f6c36cba453
+		dataType: string
+		sourceColumn: DemographicGroup
+	column AppointmentCount
+		lineageTag: 0c356039-56d9-4759-ba13-774f5d527fed
+		dataType: int64
+		sourceColumn: AppointmentCount
+	column CompletedCount
+		lineageTag: 4b14d18b-0689-46be-b6bb-b45579118675
+		dataType: int64
+		sourceColumn: CompletedCount
+	column NoShowCount
+		lineageTag: 2656eb2e-9894-48e4-a022-e6cc7ed99f86
+		dataType: int64
+		sourceColumn: NoShowCount
+	column WaitDaysTotal
+		lineageTag: afc6c758-cc09-40eb-a0cd-6c2b46ad14cc
+		dataType: int64
+		sourceColumn: WaitDaysTotal
+	column AverageWaitDays
+		lineageTag: c381b87b-1a61-4e8d-9dd9-986bb05fd71c
+		dataType: double
+		sourceColumn: AverageWaitDays
+
+	partition CommunityHealthAccess = entity
+		mode: directLake
+		source
+			entityName: CommunityHealthAccess
+			schemaName: reporting
+			expressionSource: DatabaseQuery

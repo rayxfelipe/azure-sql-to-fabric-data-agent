@@ -1,6 +1,17 @@
 # Azure Deployment Plan
 
-> **Status:** Deployed
+> **Status:** Validated for the non-destructive Fabric-only repair and ontology retry; live acceptance pending.
+>
+> The repository repair adds nonempty physical reporting tables, a real refresh
+> pipeline, corrected measures, and a new five-entity ontology with declared
+> Warehouse backing in the existing companion workspace. Live SQL and seven DAX
+> known-answer cases passed. The native analytics pipeline, full model refresh,
+> agent publication, and seven published natural-language known answers subsequently
+> passed. Graph materialization, ontology-context format compatibility, and effective
+> permission acceptance remain outstanding. Authentication is restored after the initial blocked
+> attempt. ARM infrastructure redeployment is explicitly excluded. Use the [presenter runbook](../docs/presenter-runbook.md) and
+> [current summary](../docs/deployment-summary.md); historical checks below are not
+> proof of current data, publication, ontology binding, or effective permissions.
 
 Generated: 2026-10-07
 
@@ -63,7 +74,7 @@ The subscription, region, resource group, existing Fabric capacity, and dedicate
 | Curated analytics | Fabric Warehouse | Capacity workload |
 | Orchestration | Fabric Data Pipeline | Capacity workload |
 | Business model | Power BI semantic model | Direct Lake |
-| Visualization | Power BI report | Fabric report |
+| Visualization | Warehouse queries/model exploration; report not authored | Existing Fabric surfaces |
 | Domain model | Fabric IQ Ontology | Preview |
 | Natural-language analytics | Fabric Data Agent | Fabric workload |
 
@@ -73,8 +84,9 @@ The subscription, region, resource group, existing Fabric capacity, and dedicate
 - Aggregate-first analytics with small-cell suppression.
 - TLS-encrypted Azure SQL connectivity.
 - Entra-only authentication is enforced; no SQL password is generated or stored.
-- Public SQL connectivity is limited to the administrator IP and Azure-services rule for this POC.
-- The authenticated deployment user is configured as the Azure SQL Entra administrator and Fabric uses an OAuth2 organizational-account connection.
+- Azure SQL public access is disabled; the deployed source uses private endpoint/DNS and a Fabric VNet gateway.
+- The source connection uses the dedicated Entra service principal, not OAuth2 user credentials. Existing administrator configuration is not replaced unless explicitly requested.
+- Physical reporting tables enforce the demo's record-count suppression before model/ontology consumption. SQL role tests alone do not prove OneLake, workspace, model, or published-agent isolation.
 
 ---
 
@@ -89,7 +101,11 @@ The subscription, region, resource group, existing Fabric capacity, and dedicate
 | Microsoft.Fabric/capacities | 0 new | 1 existing F8 reused | No new quota required | `fabriccapacitydemo001b`; resume then pause |
 | Fabric workspace | 1 | 1 dedicated workspace | Existing tenant/capacity access verified | `ws-e2e-sql-to-fabricagent` |
 
-**Status:** All resources within limits.
+**Historical status:** Initial resources were within limits. The legacy companion
+workspace/capacity was subsequently added for an unbound conceptual ontology.
+The repair provisions no additional capacity. The standalone ontology retry
+explicitly reused that existing companion after the primary returned
+`FeatureNotAvailable`; current capacity/access state must be checked before rehearsal.
 
 ---
 
@@ -122,6 +138,12 @@ The subscription, region, resource group, existing Fabric capacity, and dedicate
 
 ### Phase 3: Deployment
 
+The following is the original execution checklist, not a current readiness record.
+For the revised existing-environment upgrade, use the runbook's go/no-go checklist.
+Agent A publication is explicit through `-PublishDataAgent`; ontology-context
+attachment still needs compatible preview support. Do not commit or push without
+explicit authorization.
+
 - [ ] Run subscription-scope what-if and verify zero deletes
 - [ ] Deploy Azure resources
 - [ ] Load deterministic synthetic data
@@ -143,9 +165,74 @@ The subscription, region, resource group, existing Fabric capacity, and dedicate
 
 The Fabric capacity must be paused after validation. The expected steady cost while Fabric is paused is approximately $145.19/month, excluding taxes, egress, OneLake overage, and licensing.
 
+These are historical estimates, not current quotes. A second legacy F8 may also
+incur charges while active. Pause each capacity actually used; SQL/storage charges
+continue independently.
+
 ---
 
 ## 9. Validation Proof
+
+### 2026-11-04: limited Fabric-only repair and ontology retry
+
+Scope: upgrade the already-approved synthetic source and existing Fabric items,
+then attempt the new backed ontology in the primary workspace, with the existing
+approved companion used after a concrete feature rejection. **No ARM
+infrastructure deployment, resource deletion, capacity reassignment, or SQL
+administrator replacement is authorized by this retry.**
+
+| Check | Command/evidence | Result |
+|-------|------------------|--------|
+| Approved identity | Tenant-targeted Fabric token; workspace lookup; current caller role | PASS: both project workspaces accessible; caller Admin in primary workspace |
+| Existing capacities | Explicit-subscription ARM GET for the two approved capacities | PASS: both already Active; no power-state changes made |
+| Core validation | Skill `validate-deployment.ps1`, subscription scope, West US 3, private hydrated parameters | PASS: CLI, authentication, Bicep build, ARM validation, and read-only what-if |
+| Infrastructure drift | Same read-only what-if | Reported Create 2 / Modify 16 / Delete 10 change lines. **Not approved to apply**; counts can include nested property changes. No ARM deployment will run. |
+| Lint | `az bicep lint --file .\infra\main.bicep` | PASS with existing API-type/environment-URL warnings |
+| Policy | Explicit approved-subscription inherited policy assignment listing and ARM validation | PASS: three existing security initiatives; no validation denial |
+| Build/contracts | Python 3.12 unittest suite and `Test-FabricHelpers.ps1` | PASS: 23 Python tests and 9 mocked helper checks |
+| Static roles | Existing vault-scoped Secrets Officer assignment and Fabric/source identity flow | Reviewed; no new ARM roles or administrator changes proposed for this retry |
+| Existing Warehouse | Tenant-targeted SQL connection and reporting preflight | Connected successfully; new reporting tables absent, so the authorized baseline upgrade must precede grounded ontology creation |
+
+This is pre-deployment proof, not successful source refresh, ontology binding,
+agent publication, or end-to-end acceptance. Those require subsequent live checks.
+
+### November 4-5 live repair outcome
+
+- Source initialization job `23e2fa4c-9427-431e-b13a-0925f80f2db8` completed using the
+  existing private source connection. The mirror was resumed from Paused.
+- Additive Warehouse schemas, five reporting tables, direct transactional refresh,
+  and nonempty/privacy/key/relationship validation succeeded. Reported appointments
+  total 70,944; referrals 12,000; weighted wait approximately 18.97 days.
+- The existing semantic model definition and full refresh succeeded without
+  DirectQuery fallback. All seven live DAX question-bank cases passed on November 5
+  after the capacities, subsequently found Paused, were briefly resumed.
+- Primary ontology creation returned HTTP 403 `FeatureNotAvailable`, request ID
+  `9fd5474f-e151-4d31-952a-f129dc9de901`.
+- Created `CCSF_Community_Health_Demo_Ontology`,
+  `08fc9ac6-3cce-463f-81d4-b177d6548d19`, in the existing companion workspace
+  `2cd38c5e-ce17-4ce8-84ee-83aa55b34a2d`. All 17 definition parts were retrieved;
+  five table/property bindings and four relationship declarations were checked.
+  The legacy ontology was preserved.
+- The ontology editor now renders five entities/four relationships. Graph projection
+  reports Ineligible/Unsupported Datasource, including after a governed-only
+  Lakehouse-shortcut trial. The live definition was restored to Warehouse/reporting
+  through the standalone source-template updater; all 17 parts read back.
+- The actual analytics pipeline completed with a native Warehouse item binding,
+  without a new cloud SQL connection. Full model refresh and Agent A publication
+  succeeded. All seven published MCP known answers matched the canonical fixture;
+  four negative prompts disclosed no prohibited result, with two generic service
+  safety refusals. Native PowerShell HTTP/1.1 avoided observed Python transport
+  connection timeouts.
+- Draft B context attachment was rejected because the service requires the legacy
+  root `definition.json` while this new ontology returns TMDL. Graph runtime,
+  published B/fair A-B comparison, and restricted-identity checks remain outstanding.
+- No ARM deployment, new capacity/workspace, cross-region reassignment, credential
+  rotation, or SQL administrator replacement was performed.
+- Both capacities were verified Paused again after the final model checks.
+
+These are component-specific results, not full-demo or permission acceptance.
+
+### Historical infrastructure validation
 
 Validated on `2026-10-07T18:26:58-07:00`.
 
@@ -180,12 +267,14 @@ Validated on `2026-10-07T18:26:58-07:00`.
 - Azure region: `westus3`
 - Existing Fabric capacity: `fabriccapacitydemo001b`
 - Fabric workspace: `ws-e2e-sql-to-fabricagent`
+- Existing ontology-only companion: `ws-e2e-sql-to-fabricagent-iq` on
+  `fabriccapacitydemo001`, West US; reused, not newly provisioned or reassigned.
 - No resources may be created outside these boundaries.
 - No real PHI may be used.
 
 ---
 
-## 12. Deployment Result
+## 12. Historical Deployment Result
 
 - **Completed:** `2026-10-08`
 - **Status:** Deployed and validated with documented feature limitations.

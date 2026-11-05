@@ -5,15 +5,7 @@ IF SCHEMA_ID(N'health') IS NULL
     EXEC(N'CREATE SCHEMA health');
 GO
 
-IF OBJECT_ID(N'health.CapacitySnapshots', N'U') IS NOT NULL DROP TABLE health.CapacitySnapshots;
-IF OBJECT_ID(N'health.Outcomes', N'U') IS NOT NULL DROP TABLE health.Outcomes;
-IF OBJECT_ID(N'health.Referrals', N'U') IS NOT NULL DROP TABLE health.Referrals;
-IF OBJECT_ID(N'health.Appointments', N'U') IS NOT NULL DROP TABLE health.Appointments;
-IF OBJECT_ID(N'health.Clients', N'U') IS NOT NULL DROP TABLE health.Clients;
-IF OBJECT_ID(N'health.Programs', N'U') IS NOT NULL DROP TABLE health.Programs;
-IF OBJECT_ID(N'health.Facilities', N'U') IS NOT NULL DROP TABLE health.Facilities;
-GO
-
+IF OBJECT_ID(N'health.Facilities', N'U') IS NULL
 CREATE TABLE health.Facilities
 (
     FacilityId int NOT NULL CONSTRAINT PK_Facilities PRIMARY KEY,
@@ -23,6 +15,7 @@ CREATE TABLE health.Facilities
     IsSynthetic bit NOT NULL CONSTRAINT DF_Facilities_IsSynthetic DEFAULT (1)
 );
 
+IF OBJECT_ID(N'health.Programs', N'U') IS NULL
 CREATE TABLE health.Programs
 (
     ProgramId int NOT NULL CONSTRAINT PK_Programs PRIMARY KEY,
@@ -33,6 +26,7 @@ CREATE TABLE health.Programs
     CONSTRAINT FK_Programs_Facilities FOREIGN KEY (FacilityId) REFERENCES health.Facilities(FacilityId)
 );
 
+IF OBJECT_ID(N'health.Clients', N'U') IS NULL
 CREATE TABLE health.Clients
 (
     ClientId int NOT NULL CONSTRAINT PK_Clients PRIMARY KEY,
@@ -43,6 +37,7 @@ CREATE TABLE health.Clients
     IsSynthetic bit NOT NULL CONSTRAINT DF_Clients_IsSynthetic DEFAULT (1)
 );
 
+IF OBJECT_ID(N'health.Appointments', N'U') IS NULL
 CREATE TABLE health.Appointments
 (
     AppointmentId int NOT NULL CONSTRAINT PK_Appointments PRIMARY KEY,
@@ -57,6 +52,7 @@ CREATE TABLE health.Appointments
     CONSTRAINT FK_Appointments_Programs FOREIGN KEY (ProgramId) REFERENCES health.Programs(ProgramId)
 );
 
+IF OBJECT_ID(N'health.Referrals', N'U') IS NULL
 CREATE TABLE health.Referrals
 (
     ReferralId int NOT NULL CONSTRAINT PK_Referrals PRIMARY KEY,
@@ -73,6 +69,7 @@ CREATE TABLE health.Referrals
     CONSTRAINT FK_Referrals_ToProgram FOREIGN KEY (ToProgramId) REFERENCES health.Programs(ProgramId)
 );
 
+IF OBJECT_ID(N'health.Outcomes', N'U') IS NULL
 CREATE TABLE health.Outcomes
 (
     OutcomeId int NOT NULL CONSTRAINT PK_Outcomes PRIMARY KEY,
@@ -84,6 +81,7 @@ CREATE TABLE health.Outcomes
     CONSTRAINT FK_Outcomes_Appointments FOREIGN KEY (AppointmentId) REFERENCES health.Appointments(AppointmentId)
 );
 
+IF OBJECT_ID(N'health.CapacitySnapshots', N'U') IS NULL
 CREATE TABLE health.CapacitySnapshots
 (
     CapacitySnapshotId int NOT NULL CONSTRAINT PK_CapacitySnapshots PRIMARY KEY,
@@ -96,6 +94,8 @@ CREATE TABLE health.CapacitySnapshots
     CONSTRAINT FK_Capacity_Facilities FOREIGN KEY (FacilityId) REFERENCES health.Facilities(FacilityId)
 );
 
-CREATE INDEX IX_Appointments_ScheduledAt ON health.Appointments(ScheduledAt) INCLUDE (ProgramId, AppointmentStatus, WaitDays);
-CREATE INDEX IX_Referrals_ReferralDate ON health.Referrals(ReferralDate) INCLUDE (ReferralStatus, DaysToClose);
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'health.Appointments') AND name = N'IX_Appointments_ScheduledAt')
+    CREATE INDEX IX_Appointments_ScheduledAt ON health.Appointments(ScheduledAt) INCLUDE (ProgramId, AppointmentStatus, WaitDays);
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'health.Referrals') AND name = N'IX_Referrals_ReferralDate')
+    CREATE INDEX IX_Referrals_ReferralDate ON health.Referrals(ReferralDate) INCLUDE (ReferralStatus, DaysToClose);
 GO

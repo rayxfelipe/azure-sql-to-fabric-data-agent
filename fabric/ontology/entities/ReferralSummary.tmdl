@@ -1,0 +1,46 @@
+/// Daily referral aggregate by destination program and client neighborhood. Counts are not individual referrals; groups below 11 are excluded.
+entity ReferralSummary
+	lineageTag: da9ca6c0-6ba0-4d15-bcaf-55417da5cf6e
+	backingTable: ReferralPerformance
+	keyProperty: ReferralGroupId
+
+	property ReferralGroupId
+		dataType: string
+		backingConfiguration
+			valueColumn: ReferralPerformance.ReferralGroupId
+
+	property ProgramId
+		dataType: int64
+		backingConfiguration
+			valueColumn: ReferralPerformance.ProgramId
+
+	property FacilityId
+		dataType: int64
+		backingConfiguration
+			valueColumn: ReferralPerformance.FacilityId
+
+	property ReferralDate
+		dataType: dateTime
+		backingConfiguration
+			valueColumn: ReferralPerformance.ReferralDate
+
+	property Neighborhood
+		dataType: string
+		backingConfiguration
+			valueColumn: ReferralPerformance.Neighborhood
+
+	property ReferralCount
+		dataType: int64
+		backingConfiguration
+			valueColumn: ReferralPerformance.ReferralCount
+
+	property CompletedReferralCount
+		dataType: int64
+		backingConfiguration
+			valueColumn: ReferralPerformance.CompletedReferralCount
+
+	synonym 'Referral Performance'
+	synonym 'Care Navigation Summary'
+	annotation syntheticOnly = true
+	annotation aggregateOnly = true
+	annotation suppressionThreshold = 11

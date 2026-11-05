@@ -1,0 +1,56 @@
+/// Synthetic facility-day capacity snapshots, not person-level records.
+/// Small-person-group suppression does not apply to these capacity snapshots.
+table FacilityCapacity
+	lineageTag: 27933d85-257b-4b3b-b72f-76f7f5a9a432
+
+	measure 'Capacity Utilization Rate' =
+			DIVIDE(
+			    SUM(FacilityCapacity[BookedSlots]),
+			    SUM(FacilityCapacity[BookedSlots]) + SUM(FacilityCapacity[AvailableSlots])
+			)
+		formatString: 0.0%
+
+	column CapacitySnapshotId
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: CapacitySnapshotId
+
+	column FacilityName
+		dataType: string
+		summarizeBy: none
+		sourceColumn: FacilityName
+
+	column Neighborhood
+		dataType: string
+		summarizeBy: none
+		sourceColumn: Neighborhood
+
+	column SnapshotDate
+		dataType: dateTime
+		formatString: Short Date
+		summarizeBy: none
+		sourceColumn: SnapshotDate
+
+	column AvailableSlots
+		dataType: int64
+		summarizeBy: sum
+		sourceColumn: AvailableSlots
+
+	column BookedSlots
+		dataType: int64
+		summarizeBy: sum
+		sourceColumn: BookedSlots
+
+	column UtilizationRate
+		dataType: double
+		formatString: 0.0%
+		summarizeBy: none
+		sourceColumn: UtilizationRate
+
+	partition FacilityCapacity = entity
+		mode: directLake
+		source
+			entityName: FacilityCapacity
+			schemaName: reporting
+			expressionSource: DatabaseQuery

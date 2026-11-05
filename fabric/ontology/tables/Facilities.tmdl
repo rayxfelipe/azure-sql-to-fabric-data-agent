@@ -1,0 +1,25 @@
+table Facilities
+	lineageTag: 5b750143-e31b-4555-bc3d-959f148cbba0
+	column FacilityId
+		lineageTag: 19f2a26a-31e8-42a2-a9f8-25e85d3dc181
+		dataType: int64
+		sourceColumn: FacilityId
+	column FacilityName
+		lineageTag: fa31ebcf-bc4a-4bba-9318-04588acb2c3f
+		dataType: string
+		sourceColumn: FacilityName
+	column Neighborhood
+		lineageTag: 8810fa5a-2d01-40e2-b327-c08ed25a2ec3
+		dataType: string
+		sourceColumn: Neighborhood
+	column PlannedDailyCapacity
+		lineageTag: d84d9588-1981-4847-89a0-0324551c7e7a
+		dataType: int64
+		sourceColumn: PlannedDailyCapacity
+
+	partition Facilities = entity
+		mode: directLake
+		source
+			entityName: Facilities
+			schemaName: reporting
+			expressionSource: DatabaseQuery

@@ -1,0 +1,15 @@
+relationship ProgramFacility
+	fromColumn: Programs.FacilityId
+	toColumn: Facilities.FacilityId
+
+relationship AccessProgram
+	fromColumn: CommunityHealthAccess.ProgramId
+	toColumn: Programs.ProgramId
+
+relationship ReferralProgram
+	fromColumn: ReferralPerformance.ProgramId
+	toColumn: Programs.ProgramId
+
+relationship CapacityFacility
+	fromColumn: FacilityCapacity.FacilityId
+	toColumn: Facilities.FacilityId

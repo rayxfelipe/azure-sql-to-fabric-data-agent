@@ -5,6 +5,28 @@
   "displayName": "Community Health Access Model",
   "type": "semantic_model",
   "userDescription": "Direct Lake semantic model containing privacy-controlled synthetic community-health access and referral measures.",
-  "dataSourceInstructions": "Use governed measures and aggregate dimensions only. All exposed source views suppress cells with fewer than 11 records.",
-  "elements": []
+  "dataSourceInstructions": "Use governed measures and aggregate dimensions only. CommunityHealthAccess and ReferralPerformance are physical reporting tables filtered to groups of at least 11 records before materialization. Totals exclude suppressed groups and are not unsuppressed population totals. Average Wait Days is total wait days divided by appointments, never an average of averages. FacilityCapacity contains non-person-level facility snapshots. The reference date is 2026-10-01; use explicit date ranges rather than assuming records are current.",
+  "elements": [
+    {
+      "id": "865b9d8d-3032-4ab4-a426-a2f6cb08b109",
+      "is_selected": true,
+      "display_name": "CommunityHealthAccess",
+      "type": "semantic_model.table",
+      "children": []
+    },
+    {
+      "id": "ee0e3075-5470-46f7-bd74-65534ff66e95",
+      "is_selected": true,
+      "display_name": "ReferralPerformance",
+      "type": "semantic_model.table",
+      "children": []
+    },
+    {
+      "id": "27933d85-257b-4b3b-b72f-76f7f5a9a432",
+      "is_selected": true,
+      "display_name": "FacilityCapacity",
+      "type": "semantic_model.table",
+      "children": []
+    }
+  ]
 }

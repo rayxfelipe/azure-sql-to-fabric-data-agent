@@ -2,8 +2,8 @@
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
   "metadata": {
     "type": "Ontology",
-    "displayName": "CCSF_Community_Health_Ontology",
-    "description": "Synthetic community-health access domain ontology for the CCSF DPH demonstration."
+    "displayName": "CCSF_Community_Health_Demo_Ontology",
+    "description": "Synthetic community-health business context backed only by governed reporting tables."
   },
   "config": {
     "version": "2.0",

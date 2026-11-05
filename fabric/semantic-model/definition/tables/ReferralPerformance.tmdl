@@ -1,6 +1,10 @@
+/// Synthetic referral reporting aggregates. Source groups smaller than 11
+/// referrals are suppressed before materialization; totals include retained
+/// reporting groups only and must not be described as unsuppressed population.
 table ReferralPerformance
 	lineageTag: ee0e3075-5470-46f7-bd74-65534ff66e95
 
+	/// Referral count across retained, privacy-filtered reporting groups only.
 	measure 'Referrals' = SUM(ReferralPerformance[ReferralCount])
 		formatString: #,0
 
@@ -45,6 +49,6 @@ table ReferralPerformance
 	partition ReferralPerformance = entity
 		mode: directLake
 		source
-			entityName: analytics.vw_ReferralPerformance
-			schemaName: analytics
+			entityName: ReferralPerformance
+			schemaName: reporting
 			expressionSource: DatabaseQuery

@@ -1,257 +1,190 @@
 # Azure SQL to Microsoft Fabric Data Agent
 
-An end-to-end demonstration of a public-health analytics solution that moves synthetic transactional data from Azure SQL Database into Microsoft Fabric and makes governed business concepts available through a Fabric Data Agent.
+A synthetic community-health demonstration: operational appointments, referrals,
+programs, facilities, and capacity become governed analytical answers.
 
-> [!IMPORTANT]
-> The private Azure SQL-to-Fabric data path is deployed and validated with synthetic
-> data. A generation-2 community-health Ontology is deployed in a companion Fabric IQ
-> workspace on the West US F8 capacity. It is modeled but unbound because the current
-> Ontology preview requires a compatible Lakehouse or Eventhouse source; the live Data
-> Agent remains grounded in the Warehouse-backed semantic model. From-scratch report
-> authoring remains unavailable through the supported automation APIs.
+> **Current readiness:** The SQL-to-published-agent baseline works live: private
+> source, mirroring, actual analytics pipeline, governed tables, Direct Lake refresh,
+> and published agent A. All seven live DAX checks and seven published natural-language
+> known answers matched the answer card. Four negative prompts disclosed no
+> prohibited result; two returned generic safety refusals.
+> The new ontology exists and its five-entity/four-relationship editor renders, but
+> graph materialization reports unsupported data sources. Ontology-context agent B
+> is additionally blocked by a preview format mismatch: its service expects
+> `definition.json`, not the new ontology's TMDL. Restricted-identity access tests
+> are not run. Present the accepted baseline; treat graph/A-B as conditional.
+> Resume the capacities before rehearsal and pause them after use.
 
-## Scenario
+Start with the [end-to-end presenter runbook](docs/presenter-runbook.md): preparation,
+upgrade, Fabric portal walkthrough, answer card, ontology binding, two-agent
+comparison, evaluation, access tests, fallbacks, and shutdown.
+See the [deployment summary](docs/deployment-summary.md) for historical versus current status.
 
-The demonstration is designed for a community and public-health context. It will show how operational information about appointments, encounters, referrals, programs, facilities, and service outcomes can flow from an OLTP system into a governed analytical and AI experience.
+## Architecture
 
-The sample data will be entirely synthetic. This repository must not contain real patient information, protected health information (PHI), credentials, or production connection strings.
+```mermaid
+flowchart LR
+    A[Deterministic synthetic SQL seed] --> B[Private Azure SQL OLTP]
+    B -->|Mirroring| C[OneLake mirrored database]
+    C -->|Actual refresh pipeline| D[Warehouse internal analytics]
+    D -->|Suppression and materialization| E[Physical reporting tables]
+    E --> F[Direct Lake semantic model]
+    F --> G[Agent A: governed measures]
+    E --> H[Five-entity ontology with bindings]
+    H -.->|Preview format compatibility pending| I[Agent B: unaccepted draft]
+    E -.-> I
+```
 
-## Starter Application
+The repository defines the full revised path; remaining portal/pipeline acceptance
+is explicit in the runbook. The separate FastAPI starter generates an in-memory dataset; it
+does **not** write Azure SQL or feed mirroring.
 
-The Python 3.12 FastAPI service generates a deterministic, non-identifying
-community-health dataset in memory. It deliberately has no cloud database client
-and does not model names, addresses, contact details, clinical notes, or other
-direct identifiers.
+### Implemented repairs
 
-### Run locally
+- Additive source/Warehouse schemas and repeatable synthetic upserts rather than
+  dropping existing tables. Non-synthetic source data blocks seeding.
+- A fixed `2026-10-01` reference date, 5,000 clients, 90,000 appointments,
+  12,000 referrals, and 540 capacity snapshots.
+- Nonempty privacy-filtered reporting at the existing minimum of 11 records per
+  appointment/referral group; stable aggregate keys and weighted wait arithmetic.
+- Five physical `reporting` tables shared by the semantic model and ontology.
+  Direct Lake partitions no longer reference SQL views.
+- A real, transactional analytics refresh pipeline with native Warehouse item
+  authentication and explicit readiness checks; no new SQL/OAuth connection required.
+- Fabric operation-result retrieval, pagination, bounded authentication, and
+  create/update definitions. Existing ontology definitions are preserved by default.
+- Ground-truth [evaluation questions](fabric/data-agent/evaluation_questions.json),
+  API/analytics/definition/SQL-runner tests, and dependency-free PowerShell helper tests.
+- Explicit agent table selections, publication/read-back, semantic-model refresh,
+  and a Windows-native [published-agent MCP runner](scripts/Invoke-FabricDataAgent.ps1).
 
-Create and activate a virtual environment, then install the application dependencies:
+Canonical reporting totals are **70,944 appointments** and **12,000 referrals**.
+The appointment total excludes suppressed groups; it is not all 90,000 source rows.
+Average wait is approximately **18.97 days**; referral completion is **50%**.
+Deliberately programmed service-level wait bands make the synthetic comparison
+visible, not representative of actual community-health services.
+
+### Ontology and agents
+
+The new `CCSF_Community_Health_Demo_Ontology` exists in the **already-existing
+companion workspace** `ws-e2e-sql-to-fabricagent-iq`. The authenticated primary
+workspace creation request returned `403 FeatureNotAvailable`; no new workspace
+or capacity was provisioned. It contains Facility, Program, AccessSummary,
+ReferralSummary, and CapacitySnapshot.
+Every property has a declared reporting-column binding; four relationships use
+real program/facility keys. No person-level client, appointment, or referral source
+is exposed through those backing tables.
+
+Warehouse/semantic-model ontology bindings are now documented product capabilities;
+the historical "Lakehouse/Eventhouse only" limitation is not generally current.
+The older seven-entity conceptual ontology in `ws-e2e-sql-to-fabricagent-iq` remains
+untouched. The server accepted and returned the new definition and bindings. The editor
+rendered all five entities/four relationships. Graph projection nevertheless
+reported every entity Ineligible with "Unsupported Datasource". A same-workspace
+Lakehouse with five OneLake shortcuts to only the governed Warehouse tables was
+also tested; this did not establish graph execution. No raw-data copy or new
+workspace/capacity was needed.
+
+The checked-in configuration updates agent A's draft; `-PublishDataAgent` explicitly
+publishes it and verifies read-back. Its three model tables are selected, and the
+published MCP experience was rehearsed. Agent B exists only as an unaccepted draft:
+the ontology-context service rejected the new TMDL item because it requires the
+older root `definition.json` format. Do not mix formats or present B as working.
+Ontology supplies business context while underlying sources execute
+queries; it does not guarantee better answers. A fair comparison must control
+data, permissions, questions, and source/engine differences.
+
+### Supported measures and questions
+
+Implemented: reported appointment counts/completion, no-show rate, appointment-weighted
+average wait, referral counts/completion, and facility capacity utilization.
+
+- Which service category has the longest weighted average wait?
+- How many reported appointments are available, excluding suppressed groups?
+- What percentage of reported referrals were completed?
+- How many capacity snapshots exceeded 85% utilization in September 2026?
+
+Not implemented: distinct clients served, encounters per resident, median waits,
+travel distances, population-adjusted rates, clinical outcomes, or follow-up rates.
+Use fixed date ranges rather than relative dates against this fixed fixture.
+No Power BI report has been authored.
+
+## Upgrade and rehearse
+
+Use the [presenter runbook](docs/presenter-runbook.md) for required identity, private
+source connection, and native Warehouse pipeline preparation.
+Do not recreate infrastructure to repair this existing environment.
+
+```powershell
+az login --tenant aa56606c-b0ba-43a8-9c11-eb0144a67efb
+.\scripts\Set-FabricCapacityState.ps1 -State Resume -Target All
+.\scripts\Deploy-Fabric.ps1 -InitializeSource -PublishDataAgent
+.\scripts\Test-Deployment.ps1
+```
+
+After the reporting baseline is ready, an independent ontology attempt is:
+
+```powershell
+.\scripts\Deploy-Ontology.ps1 -WorkspaceName 'ws-e2e-sql-to-fabricagent-iq'
+```
+
+The standalone script still defaults to the primary workspace; pass the supported
+companion explicitly in this environment. Existing ontology definitions are preserved; export/review before explicitly using
+`-UpdateExisting`. Preserve native lineage tags when reviewing exported definitions.
+Live agent accuracy, graph refresh, and effective OneLake/SQL permissions need
+separate acceptance checks; successful publication alone is insufficient.
+
+For a published-agent rehearsal on PowerShell 7.4+, use
+[Invoke-FabricDataAgent.ps1](scripts/Invoke-FabricDataAgent.ps1); it needs no optional
+Python MCP packages. The [Python SDK runner](scripts/Invoke-FabricDataAgent.py) and
+[demo requirements](requirements-demo.txt) remain optional. Python HTTPS connection
+timeouts were observed here; native HTTP/1.1 completed the same real MCP requests.
+
+## Local API starter
+
+Python 3.12; no cloud database client or direct identifying fields in the API dataset:
 
 ```powershell
 py -3.12 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -r requirements.txt
 Copy-Item .env.sample .env
-uvicorn main:app --host 0.0.0.0 --port 8000
+uvicorn main:app --host 127.0.0.1 --port 8000
 ```
 
-Environment variables in `.env.sample` document the deterministic seed, record
-count, reference date, CORS origins, and listening port. Uvicorn does not load
-`.env` automatically; set those variables in the shell when overriding defaults.
-For a Linux production process, use:
+Uvicorn does not automatically load `.env`; set documented variables in the shell
+to override defaults. Endpoints: `GET /healthz`, `GET /readyz` (503 if unavailable),
+`GET /api/v1/synthetic-data`, and `GET /docs`.
 
-```text
-gunicorn -w 4 -k uvicorn.workers.UvicornWorker main:app --bind 0.0.0.0:${PORT:-8000}
+## Tests
+
+With the existing Python 3.12 dependencies and PowerShell 7:
+
+```powershell
+$env:PYTHONDONTWRITEBYTECODE = '1'
+py -3.12 -m unittest discover -s .\tests -v
+.\tests\Test-FabricHelpers.ps1
+git --no-pager diff --check
 ```
 
-Available endpoints:
+SQLite tests independently reproduce the deterministic SQL fixture and exercise
+checked-in reporting view logic. They verify known answers and suppression, not
+Fabric server-side T-SQL/TMDL acceptance, live agent accuracy, or permissions.
 
-- `GET /healthz` — liveness response (`200 {"status":"ok"}`)
-- `GET /readyz` — in-memory dataset readiness (`200`, or `503` if unavailable)
-- `GET /api/v1/synthetic-data` — deterministic synthetic dataset
-- `GET /docs` — interactive OpenAPI documentation
+## Privacy and operational boundaries
 
-## Architecture
+- Synthetic data only; no real PHI, customer correspondence, secrets, or production
+  connection strings in source control. The local `Reference` folder is ignored.
+- The private Azure SQL source uses Entra authentication through the existing VNet
+  gateway. Do not enable public source access to simplify the demo.
+- SQL reporting grants/raw-schema denial are illustrative controls. Test effective
+  SQL, OneLake, item, model, workspace, and published-agent access with a restricted
+  identity. Instructions and source-selection checkboxes are not security boundaries.
+- Small-cell suppression applies to record counts at the declared grain; production
+  disclosure protection needs a broader review. Synthetic associations are not causal.
+- Pause approved Fabric capacities after use. `-Target Primary` is the default;
+  `-Target LegacyOntology` or `All` handles the historical capacity when applicable.
+  Azure SQL and some storage costs continue while Fabric is paused.
 
-```mermaid
-flowchart LR
-    A[Synthetic Community Health Workload] --> B[Azure SQL Database<br/>OLTP]
-    B -->|Fabric Mirroring| C[OneLake Mirrored Database]
-    C -->|Fabric Data Pipeline| D[Fabric Warehouse<br/>OLAP Star Schema]
-    D -->|Direct Lake| E[Power BI Semantic Model]
-    E --> G[Fabric Data Agent]
-    F[Fabric IQ Ontology<br/>Modeled in companion workspace]
-    E --> H[Power BI Report]
-```
-
-### Azure
-
-The planned Azure resource group is:
-
-```text
-rg-e2e-sql-to-fabricagent
-```
-
-It is expected to contain:
-
-- An Azure SQL logical server
-- An Azure SQL Database
-- The identity and network configuration required for Fabric Mirroring
-- Optional diagnostic settings
-
-Additional Azure services will be introduced only if they are required by the final implementation.
-
-### Microsoft Fabric
-
-The primary Fabric workspace contains:
-
-- An Azure SQL mirrored database
-- A Fabric Warehouse
-- A Fabric Data Pipeline
-- A Direct Lake semantic model
-- A Power BI report
-- A Fabric Data Agent
-
-A companion workspace, `ws-e2e-sql-to-fabricagent-iq`, contains the generation-2
-Fabric IQ Ontology. The split is required because the primary workspace is in West US 3
-and cannot be reassigned across regions to the Ontology-enabled West US capacity.
-The capacities can be paused when the environment is not in use to limit cost.
-
-## Planned Data Model
-
-The synthetic operational model is expected to include:
-
-- Clients represented by synthetic identifiers
-- Demographic groups and age bands
-- San Francisco analysis neighborhoods
-- Facilities and service programs
-- Appointments and encounters
-- Referrals and referral outcomes
-- Service categories
-- Facility capacity
-
-The analytical model will convert the normalized operational data into dimensions and facts suitable for population-health and service-access analysis.
-
-## Example Measures
-
-Planned governed measures include:
-
-- Unique clients served
-- Encounters per 1,000 residents
-- Appointment completion rate
-- No-show rate
-- Median appointment wait time
-- Referral completion rate
-- Median referral completion time
-- Program capacity utilization
-- Follow-up within 30 days
-- Service-access differences by neighborhood
-
-## Example Agent Questions
-
-The completed Fabric Data Agent should support questions such as:
-
-- How many clients received services this quarter, by program?
-- Which service categories have the longest median appointment wait times?
-- How has referral completion changed over the last six months?
-- Which facilities are operating above 85 percent of planned capacity?
-- Which neighborhoods have lower service utilization after adjusting for population?
-- Where do residents experience both longer wait times and longer travel distances?
-
-## Privacy and Responsible AI
-
-Privacy and governance are core requirements of the demonstration:
-
-- Use synthetic data only.
-- Do not store real PHI or directly identifying information.
-- Exclude unstructured clinical notes from the initial scope.
-- Enforce least-privilege access through Microsoft Entra ID.
-- Apply disclosure controls below the agent layer.
-- Use approved aggregate measures and demographic groupings.
-- Suppress or withhold small populations according to an approved policy.
-- Do not rely on agent instructions as a security boundary.
-- Clearly distinguish synthetic demonstration patterns from real public-health findings.
-- Treat associations as descriptive rather than causal.
-
-Any production adaptation must undergo organizational privacy, security, legal, data-governance, and responsible-AI review.
-
-## Planned Repository Structure
-
-The repository will evolve toward the following layout:
-
-```text
-.
-|-- infra/                  # Azure infrastructure as code
-|-- src/community_health/   # Synthetic data API and local data layer
-|-- main.py                 # ASGI entry point
-|-- requirements.txt        # Python production dependencies
-|-- database/
-|   |-- schema/             # Azure SQL OLTP schema
-|   |-- seed/               # Synthetic sample data
-|   `-- workload/           # Transaction workload generator
-|-- fabric/
-|   |-- warehouse/          # OLAP schema and transformations
-|   |-- pipeline/           # Pipeline definitions
-|   |-- semantic-model/     # Semantic model artifacts
-|   |-- ontology/           # Ontology documentation or artifacts
-|   `-- data-agent/         # Agent configuration and evaluations
-|-- tests/                  # Data, privacy, and deployment tests
-|-- docs/                   # Architecture and operational guidance
-`-- README.md
-```
-
-This structure is provisional and will be adjusted to match the deployment and source-control capabilities of the selected Fabric items.
-
-## Delivery Plan
-
-- [x] Define naming, region, networking, and access conventions
-- [x] Create Azure infrastructure as code
-- [x] Create the Azure SQL OLTP schema
-- [x] Create a deterministic local synthetic-data starter service
-- [x] Load synthetic community-health data into Azure SQL
-- [x] Configure Fabric capacity and a dedicated workspace
-- [x] Configure Azure SQL Mirroring
-- [x] Create the Fabric Warehouse and transformation pipeline
-- [x] Build the Direct Lake semantic model
-- [ ] Create the Power BI demonstration report (definition artifacts require supported visual authoring)
-- [x] Generate and curate the Fabric IQ Ontology in the companion Fabric IQ workspace
-- [x] Create and configure the Fabric Data Agent
-- [x] Add privacy, permission, data-quality, and deployment validation
-- [x] Document deployment, demonstration, and shutdown procedures
-
-## Cost Management
-
-The deployment will create billable Azure and Microsoft Fabric resources. The implementation should:
-
-- Use an appropriately sized Azure SQL Database for demonstration data.
-- Reuse the approved existing Fabric capacity.
-- Pause the Fabric capacity when it is not needed.
-- Avoid unnecessary supporting services.
-- Document resource cleanup and shutdown procedures.
-
-## Deployment Status
-
-**Private Azure SQL-to-Fabric data path deployed and validated.**
-
-Deployed in the approved boundary:
-
-- Resource group `rg-e2e-sql-to-fabricagent`
-- Entra-only Azure SQL server `sql-e2e-fabricagent-dev-3af2`
-- S3 database `sqldb-community-health`
-- Private VNet, SQL private endpoint, private DNS, and delegated Fabric gateway subnet
-- Key Vault `kv-e2e-fabric-3af2`
-- Fabric workspace `ws-e2e-sql-to-fabricagent`
-- Fabric VNet data gateway `gw-e2e-sql-to-fabricagent`
-- Service principal `sp-e2e-sql-to-fabricagent`
-- Mirrored database `CommunityHealthOLTP_Mirror`
-- Warehouse `CommunityHealthAnalyticsWH`
-- Pipelines `pl_initialize_azure_sql_source` and `pl_load_community_health_analytics`
-- Direct Lake semantic model `Community Health Access Model`
-- Data Agent `SFDPH Community Health Analyst`
-
-The tenant's MCAPS policies enforce both Entra-only authentication and private-only
-Azure SQL networking. The deployment uses a dedicated, single-tenant service principal
-because Fabric VNet Data Gateway does not support OAuth2 user credentials for Azure SQL.
-The credential is stored only in Fabric's encrypted connection and expires on
-April 6, 2027. It is not present in this repository or local deployment state.
-
-Validation confirmed:
-
-- Mirroring status is `Running`.
-- Azure SQL synthetic initialization completed.
-- Warehouse fact tables contain rows.
-- Aggregate privacy views expose no group smaller than 11.
-- The Direct Lake semantic model and Data Agent exist in the dedicated workspace.
-
-Known limitations:
-
-- The generation-2 Ontology is deployed in `ws-e2e-sql-to-fabricagent-iq` on
-  `fabriccapacitydemo001`. It contains seven community-health entity types and six
-  relationships. It is currently ontology-first and unbound because its companion
-  workspace has no compatible Lakehouse or Eventhouse source. The Warehouse-backed
-  semantic model and live Data Agent remain in the primary workspace.
-- Attaching an ontology to a Data Agent remains a portal-only Preview workflow.
-- Official REST APIs do not provide supported from-scratch visual report authoring, so
-  the report item is not created.
-
-The F8 capacity is paused after validation to control cost.
+Any production adaptation requires organizational privacy, security, legal,
+data-governance, and responsible-AI review.

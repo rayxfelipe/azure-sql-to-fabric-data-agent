@@ -1,0 +1,62 @@
+/// Daily appointment aggregate by program, facility, age band, and demographic group. Only groups of at least 11 are materialized. Totals exclude suppressed groups.
+entity AccessSummary
+	lineageTag: c51ee0c8-ad4d-448d-b5de-0bc123a6b80f
+	backingTable: CommunityHealthAccess
+	keyProperty: AccessGroupId
+
+	property AccessGroupId
+		dataType: string
+		backingConfiguration
+			valueColumn: CommunityHealthAccess.AccessGroupId
+
+	property ProgramId
+		dataType: int64
+		backingConfiguration
+			valueColumn: CommunityHealthAccess.ProgramId
+
+	property FacilityId
+		dataType: int64
+		backingConfiguration
+			valueColumn: CommunityHealthAccess.FacilityId
+
+	property ScheduledDate
+		dataType: dateTime
+		backingConfiguration
+			valueColumn: CommunityHealthAccess.ScheduledDate
+
+	property AgeBand
+		dataType: string
+		backingConfiguration
+			valueColumn: CommunityHealthAccess.AgeBand
+
+	property DemographicGroup
+		dataType: string
+		backingConfiguration
+			valueColumn: CommunityHealthAccess.DemographicGroup
+
+	property AppointmentCount
+		dataType: int64
+		backingConfiguration
+			valueColumn: CommunityHealthAccess.AppointmentCount
+
+	property CompletedCount
+		dataType: int64
+		backingConfiguration
+			valueColumn: CommunityHealthAccess.CompletedCount
+
+	property NoShowCount
+		dataType: int64
+		backingConfiguration
+			valueColumn: CommunityHealthAccess.NoShowCount
+
+	/// Sum this value and divide by summed AppointmentCount. Never average precomputed group averages.
+	property WaitDaysTotal
+		dataType: int64
+		backingConfiguration
+			valueColumn: CommunityHealthAccess.WaitDaysTotal
+
+	synonym 'Appointment Access'
+	synonym 'Service Access Summary'
+	annotation syntheticOnly = true
+	annotation aggregateOnly = true
+	annotation suppressionThreshold = 11

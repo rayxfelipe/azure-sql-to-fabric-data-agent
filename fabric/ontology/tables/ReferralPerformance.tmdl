@@ -1,0 +1,48 @@
+table ReferralPerformance
+	lineageTag: 64e33de0-3569-4014-95a2-afa4b9cb22f0
+	measure 'Referrals' = SUM(ReferralPerformance[ReferralCount])
+	measure 'Referral Completion Rate' = DIVIDE(SUM(ReferralPerformance[CompletedReferralCount]), [Referrals])
+
+	column ReferralGroupId
+		lineageTag: 4307d77f-1807-492c-bce9-4408952d4f17
+		dataType: string
+		sourceColumn: ReferralGroupId
+	column ProgramId
+		lineageTag: a83ed92f-ff82-47be-a603-25759d6c5b27
+		dataType: int64
+		sourceColumn: ProgramId
+	column FacilityId
+		lineageTag: 94a14cb0-7be5-498a-bf85-d9dc0b0b8ec0
+		dataType: int64
+		sourceColumn: FacilityId
+	column ReferralDate
+		lineageTag: 64f7126a-59c3-4c20-b72b-544aa980d757
+		dataType: dateTime
+		sourceColumn: ReferralDate
+	column ServiceCategory
+		lineageTag: 6f421869-4d10-4ea2-ba2e-47830a55ef93
+		dataType: string
+		sourceColumn: ServiceCategory
+	column Neighborhood
+		lineageTag: bf7ff542-4b5c-43c8-8530-30ad8ebb5005
+		dataType: string
+		sourceColumn: Neighborhood
+	column ReferralCount
+		lineageTag: 4421b261-9cac-4f16-92b6-c18f2188aaf2
+		dataType: int64
+		sourceColumn: ReferralCount
+	column CompletedReferralCount
+		lineageTag: f6ac8295-7244-431c-a8ca-4bf24c35ff39
+		dataType: int64
+		sourceColumn: CompletedReferralCount
+	column AverageDaysToClose
+		lineageTag: cc7758ec-4464-4601-8827-9c8b144adb44
+		dataType: double
+		sourceColumn: AverageDaysToClose
+
+	partition ReferralPerformance = entity
+		mode: directLake
+		source
+			entityName: ReferralPerformance
+			schemaName: reporting
+			expressionSource: DatabaseQuery

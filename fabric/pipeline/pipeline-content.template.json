@@ -8,18 +8,23 @@
         "dependsOn": [],
         "policy": {
           "timeout": "0.01:00:00",
-          "retry": 1,
+          "retry": 6,
           "retryIntervalInSeconds": 30,
           "secureInput": false,
           "secureOutput": false
         },
-        "externalReferences": {
-          "connection": "{{WAREHOUSE_CONNECTION_ID}}"
+        "linkedService": {
+          "name": "CommunityHealthAnalyticsWH",
+          "properties": {
+            "type": "DataWarehouse",
+            "typeProperties": {
+              "endpoint": "{{WAREHOUSE_SQL_ENDPOINT}}",
+              "artifactId": "{{WAREHOUSE_ID}}",
+              "workspaceId": "{{WORKSPACE_ID}}"
+            }
+          }
         },
         "typeProperties": {
-          "database": {
-            "name": "CommunityHealthAnalyticsWH"
-          },
           "scripts": [
             {
               "type": "NonQuery",

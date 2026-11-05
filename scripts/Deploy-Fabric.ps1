@@ -1,189 +1,65 @@
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory)][string]$SqlServicePrincipalClientId,
-    [Parameter(Mandatory)][string]$SqlServicePrincipalObjectId,
-    [Parameter(Mandatory)][string]$SqlServicePrincipalDisplayName,
-    [Parameter(Mandatory)][securestring]$SqlServicePrincipalSecret,
-    [string]$SqlServicePrincipalTenantId = 'aa56606c-b0ba-43a8-9c11-eb0144a67efb'
+    [string]$SqlServicePrincipalClientId,
+    [string]$SqlServicePrincipalObjectId,
+    [string]$SqlServicePrincipalDisplayName,
+    [securestring]$SqlServicePrincipalSecret,
+    [string]$SqlServicePrincipalTenantId = 'aa56606c-b0ba-43a8-9c11-eb0144a67efb',
+    [string]$WarehouseConnectionId,
+    [string]$OntologyWorkspaceName = 'ws-e2e-sql-to-fabricagent-iq',
+    [switch]$PublishDataAgent,
+    [switch]$InitializeSource,
+    [switch]$ConfigureSqlAdministrator,
+    [switch]$UpdateExistingOntology
 )
 
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
-
-$FabricBaseUri = 'https://api.fabric.microsoft.com/v1'
 $CapacityId = 'c23c22ae-da71-49b2-b620-8612df1259dc'
-$OntologyCapacityId = 'cbf0f4f7-7c0a-430e-8c2f-ac86db2d4f69'
 $WorkspaceName = 'ws-e2e-sql-to-fabricagent'
-$OntologyWorkspaceName = 'ws-e2e-sql-to-fabricagent-iq'
 $SessionDirectory = Join-Path $PSScriptRoot '..\.copilot-azure\sessions\3af2326f-c8f1-4018-b73a-1542e5e709c0'
 $AzureDeploymentFile = Join-Path $SessionDirectory 'azure-deployment.json'
 $StateFile = Join-Path $SessionDirectory 'fabric-deployment.json'
+. (Join-Path $PSScriptRoot 'Fabric-Helpers.ps1')
 
 if (-not (Test-Path -LiteralPath $AzureDeploymentFile)) {
     throw 'Azure deployment state is missing. Run Deploy-Azure.ps1 first.'
 }
-
 $azure = Get-Content -LiteralPath $AzureDeploymentFile -Raw | ConvertFrom-Json
-$plainSqlServicePrincipalSecret = [Net.NetworkCredential]::new('', $SqlServicePrincipalSecret).Password
-az sql server ad-admin update `
-    --subscription $azure.subscriptionId `
-    --resource-group $azure.resourceGroupName `
-    --server-name $azure.sqlServerName `
-    --display-name $SqlServicePrincipalDisplayName `
-    --object-id $SqlServicePrincipalObjectId `
-    --only-show-errors | Out-Null
-if ($LASTEXITCODE -ne 0) {
-    throw 'Unable to configure the supplied service principal as the Entra-only Azure SQL administrator.'
-}
-$token = (az account get-access-token --resource 'https://api.fabric.microsoft.com' --query accessToken --output tsv)
-if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($token)) {
-    throw 'Unable to acquire a Microsoft Fabric access token.'
-}
-$headers = @{ Authorization = "Bearer $token" }
-$fabricHttpClient = [Net.Http.HttpClient]::new()
-$fabricHttpClient.DefaultRequestVersion = [Version]'1.1'
-$fabricHttpClient.DefaultRequestHeaders.Authorization = [Net.Http.Headers.AuthenticationHeaderValue]::new('Bearer', $token)
-
-function ConvertTo-InlinePart {
-    param(
-        [Parameter(Mandatory)][string]$Path,
-        [Parameter(Mandatory)][string]$Content
-    )
-    @{
-        path = $Path
-        payload = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($Content))
-        payloadType = 'InlineBase64'
+Connect-Fabric -TenantId $SqlServicePrincipalTenantId
+if ($ConfigureSqlAdministrator) {
+    if (-not $SqlServicePrincipalObjectId -or -not $SqlServicePrincipalDisplayName) {
+        throw 'Configuring the SQL administrator requires the service principal object ID and display name.'
     }
+    az sql server ad-admin update --subscription $azure.subscriptionId `
+        --resource-group $azure.resourceGroupName --server-name $azure.sqlServerName `
+        --display-name $SqlServicePrincipalDisplayName --object-id $SqlServicePrincipalObjectId `
+        --only-show-errors | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw 'Unable to configure the explicitly requested SQL administrator.' }
 }
 
-function Wait-FabricOperation {
-    param([Parameter(Mandatory)][string]$Location)
-    for ($attempt = 0; $attempt -lt 60; $attempt++) {
-        Start-Sleep -Seconds 5
-        $operation = Invoke-Fabric -Method GET -Path $Location
-        if ($operation.status -eq 'Succeeded') {
-            if ($operation.resourceLocation) {
-                return Invoke-Fabric -Method GET -Path $operation.resourceLocation
-            }
-            return $operation
-        }
-        if ($operation.status -eq 'Failed') {
-            throw "Fabric operation failed: $($operation.error | ConvertTo-Json -Depth 20 -Compress)"
-        }
-    }
-    throw "Fabric operation timed out: $Location"
-}
-
-function Invoke-Fabric {
-    param(
-        [Parameter(Mandatory)][ValidateSet('GET', 'POST', 'PATCH', 'DELETE')][string]$Method,
-        [Parameter(Mandatory)][string]$Path,
-        [object]$Body
-    )
-    $uri = if ($Path.StartsWith('https://')) { $Path } else { "$FabricBaseUri/$($Path.TrimStart('/'))" }
-    Write-Verbose "Fabric API $Method $Path"
-    $response = $null
-    $statusCode = 0
-    $responseHeaders = $null
-    for ($requestAttempt = 1; $requestAttempt -le 4; $requestAttempt++) {
-        try {
-            $request = [Net.Http.HttpRequestMessage]::new([Net.Http.HttpMethod]::new($Method), $uri)
-            $request.Version = [Version]'1.1'
-            if ($null -ne $Body) {
-                $json = $Body | ConvertTo-Json -Depth 100 -Compress
-                $request.Content = [Net.Http.StringContent]::new($json, [Text.Encoding]::UTF8, 'application/json')
-            }
-            $httpResponse = $fabricHttpClient.SendAsync($request).GetAwaiter().GetResult()
-            $statusCode = [int]$httpResponse.StatusCode
-            $responseHeaders = $httpResponse.Headers
-            $content = $httpResponse.Content.ReadAsStringAsync().GetAwaiter().GetResult()
-            $response = if ([string]::IsNullOrWhiteSpace($content)) { $null } else { $content | ConvertFrom-Json }
-            break
-        }
-        catch {
-            if ($requestAttempt -lt 4 -and $_.Exception.Message -match 'transport connection|forcibly closed|timed out|SSL connection') {
-                Start-Sleep -Seconds (5 * $requestAttempt)
-                continue
-            }
-            throw
-        }
-    }
-    if ($statusCode -eq 202) {
-        $location = [string]$responseHeaders.Location
-        if (-not $location) {
-            return $response
-        }
-        return Wait-FabricOperation -Location $location
-    }
-    if ($statusCode -lt 200 -or $statusCode -ge 300) {
-        throw "Fabric API $Method $Path failed with HTTP $statusCode`: $($response | ConvertTo-Json -Depth 20 -Compress)"
-    }
-    return $response
-}
-
-function Get-WorkspaceItem {
-    param(
-        [Parameter(Mandatory)][string]$WorkspaceId,
-        [Parameter(Mandatory)][string]$Collection,
-        [Parameter(Mandatory)][string]$DisplayName
-    )
-    $items = Invoke-Fabric -Method GET -Path "workspaces/$WorkspaceId/$Collection"
-    return @($items.value) | Where-Object displayName -eq $DisplayName | Select-Object -First 1
-}
-
-function New-DefinitionItem {
-    param(
-        [Parameter(Mandatory)][string]$WorkspaceId,
-        [Parameter(Mandatory)][string]$Collection,
-        [Parameter(Mandatory)][string]$DisplayName,
-        [Parameter(Mandatory)][object[]]$Parts,
-        [string]$Description
-    )
-    $existing = Get-WorkspaceItem -WorkspaceId $WorkspaceId -Collection $Collection -DisplayName $DisplayName
-    if ($existing) {
-        if ($Collection -ne 'mirroredDatabases') {
-            Invoke-Fabric -Method POST -Path "workspaces/$WorkspaceId/$Collection/$($existing.id)/updateDefinition" -Body @{
-                definition = @{ parts = $Parts }
-            } | Out-Null
-        }
-        return $existing
-    }
-    return Invoke-Fabric -Method POST -Path "workspaces/$WorkspaceId/$Collection" -Body @{
-        displayName = $DisplayName
-        description = $Description
-        definition = @{ parts = $Parts }
-    }
-}
-
-$workspaceList = Invoke-Fabric -Method GET -Path 'workspaces'
-$workspace = @($workspaceList.value) | Where-Object displayName -eq $WorkspaceName | Select-Object -First 1
+$workspace = Get-FabricCollection -Path 'workspaces' |
+    Where-Object displayName -eq $WorkspaceName | Select-Object -First 1
 if (-not $workspace) {
     $workspace = Invoke-Fabric -Method POST -Path 'workspaces' -Body @{
         displayName = $WorkspaceName
-        description = 'Synthetic CCSF DPH community-health SQL-to-Fabric demonstration.'
+        description = 'Synthetic CCSF community-health SQL-to-Fabric demonstration.'
     }
 }
 $workspaceId = $workspace.id
-
-Invoke-Fabric -Method POST -Path "workspaces/$workspaceId/assignToCapacity" -Body @{ capacityId = $CapacityId } | Out-Null
-
-$ontologyWorkspace = @($workspaceList.value) | Where-Object displayName -eq $OntologyWorkspaceName | Select-Object -First 1
-if (-not $ontologyWorkspace) {
-    $ontologyWorkspace = Invoke-Fabric -Method POST -Path 'workspaces' -Body @{
-        displayName = $OntologyWorkspaceName
-        description = 'Companion Fabric IQ workspace for the synthetic CCSF DPH SQL-to-Fabric demonstration.'
-    }
+if (-not $workspaceId) { throw 'Fabric did not return a workspace ID.' }
+if (-not $workspace.capacityId) {
+    Invoke-Fabric -Method POST -Path "workspaces/$workspaceId/assignToCapacity" -Body @{ capacityId = $CapacityId } | Out-Null
 }
-Invoke-Fabric -Method POST -Path "workspaces/$($ontologyWorkspace.id)/assignToCapacity" -Body @{
-    capacityId = $OntologyCapacityId
-} | Out-Null
+elseif ($workspace.capacityId -ne $CapacityId) {
+    throw 'The demo workspace is assigned to an unexpected capacity. No cross-region reassignment was attempted.'
+}
 
-$gateways = Invoke-Fabric -Method GET -Path 'gateways'
-$gatewayName = 'gw-e2e-sql-to-fabricagent'
-$gateway = @($gateways.value) | Where-Object displayName -eq $gatewayName | Select-Object -First 1
+$gateway = Get-FabricCollection -Path 'gateways' |
+    Where-Object displayName -eq 'gw-e2e-sql-to-fabricagent' | Select-Object -First 1
 if (-not $gateway) {
     $gateway = Invoke-Fabric -Method POST -Path 'gateways' -Body @{
-        displayName = $gatewayName
+        displayName = 'gw-e2e-sql-to-fabricagent'
         capacityId = $CapacityId
         inactivityMinutesBeforeSleep = 30
         numberOfMemberGateways = 1
@@ -196,27 +72,25 @@ if (-not $gateway) {
         }
     }
 }
-
-$roleAssignments = Invoke-Fabric -Method GET -Path "workspaces/$workspaceId/roleAssignments"
-$miAssignment = @($roleAssignments.value) | Where-Object { $_.principal.id -eq $azure.sqlServerPrincipalId }
-if (-not $miAssignment) {
+$roles = @(Get-FabricCollection -Path "workspaces/$workspaceId/roleAssignments")
+if (-not ($roles | Where-Object { $_.principal.id -eq $azure.sqlServerPrincipalId })) {
     Invoke-Fabric -Method POST -Path "workspaces/$workspaceId/roleAssignments" -Body @{
-        principal = @{
-            id = $azure.sqlServerPrincipalId
-            type = 'ServicePrincipal'
-        }
+        principal = @{ id = $azure.sqlServerPrincipalId; type = 'ServicePrincipal' }
         role = 'Contributor'
     } | Out-Null
 }
 
-$connections = Invoke-Fabric -Method GET -Path 'connections'
-$sqlConnectionName = 'CommunityHealthAzureSql'
-$sqlConnection = @($connections.value) | Where-Object displayName -eq $sqlConnectionName | Select-Object -First 1
+$connections = @(Get-FabricCollection -Path 'connections')
+$sqlConnection = $connections | Where-Object displayName -eq 'CommunityHealthAzureSql' | Select-Object -First 1
 if (-not $sqlConnection) {
+    if (-not $SqlServicePrincipalClientId -or -not $SqlServicePrincipalSecret) {
+        throw 'A new private Azure SQL connection requires the service principal client ID and secure secret. Existing connections are reused without retrieving credentials.'
+    }
+    $plainSecret = [Net.NetworkCredential]::new('', $SqlServicePrincipalSecret).Password
     $sqlConnection = Invoke-Fabric -Method POST -Path 'connections' -Body @{
         connectivityType = 'VirtualNetworkGateway'
         gatewayId = $gateway.id
-        displayName = $sqlConnectionName
+        displayName = 'CommunityHealthAzureSql'
         connectionDetails = @{
             type = 'SQL'
             creationMethod = 'SQL'
@@ -233,252 +107,175 @@ if (-not $sqlConnection) {
             credentials = @{
                 credentialType = 'ServicePrincipal'
                 servicePrincipalClientId = $SqlServicePrincipalClientId
-                servicePrincipalSecret = $plainSqlServicePrincipalSecret
+                servicePrincipalSecret = $plainSecret
                 tenantId = $SqlServicePrincipalTenantId
             }
         }
         allowUsageInUserControlledCode = $true
     }
+    $plainSecret = $null
 }
 
-$sourceSqlFiles = @(
-    '..\database\schema\001_oltp_schema.sql',
-    '..\database\seed\002_seed_synthetic.sql',
-    '..\database\validation\004_validate_source.sql'
-)
-$sourceScripts = [Collections.Generic.List[object]]::new()
-foreach ($relativePath in $sourceSqlFiles) {
-    $content = Get-Content -LiteralPath (Join-Path $PSScriptRoot $relativePath) -Raw
-    foreach ($batch in [regex]::Split($content, '(?im)^\s*GO\s*$')) {
+$sourceScripts = @()
+foreach ($file in @('..\database\schema\001_oltp_schema.sql', '..\database\seed\002_seed_synthetic.sql', '..\database\validation\004_validate_source.sql')) {
+    $sql = Get-Content -LiteralPath (Join-Path $PSScriptRoot $file) -Raw
+    foreach ($batch in [regex]::Split($sql, '(?im)^\s*GO\s*$')) {
         if (-not [string]::IsNullOrWhiteSpace($batch)) {
-            $sourceScripts.Add(@{ type = 'NonQuery'; text = $batch.Trim() })
+            $sourceScripts += @{ type = 'NonQuery'; text = $batch.Trim() }
         }
     }
 }
-$sourceInitDefinition = @{
+$sourceDefinition = @{
     properties = @{
-        description = 'Initializes and validates the private Azure SQL synthetic source.'
-        activities = @(
-            @{
-                name = 'InitializeSyntheticAzureSql'
-                type = 'Script'
-                dependsOn = @()
-                policy = @{
-                    timeout = '0.01:00:00'
-                    retry = 1
-                    retryIntervalInSeconds = 30
-                    secureInput = $false
-                    secureOutput = $false
-                }
-                externalReferences = @{ connection = $sqlConnection.id }
-                typeProperties = @{
-                    database = @{ name = $azure.sqlDatabaseName }
-                    scripts = $sourceScripts
-                    scriptBlockExecutionTimeout = '00:30:00'
-                }
+        description = 'Non-destructively upserts and validates the synthetic source through the private VNet gateway.'
+        activities = @(@{
+            name = 'InitializeSyntheticAzureSql'
+            type = 'Script'
+            dependsOn = @()
+            policy = @{ timeout = '0.01:00:00'; retry = 1; retryIntervalInSeconds = 30; secureInput = $false; secureOutput = $false }
+            externalReferences = @{ connection = $sqlConnection.id }
+            typeProperties = @{
+                database = @{ name = $azure.sqlDatabaseName }
+                scripts = $sourceScripts
+                scriptBlockExecutionTimeout = '00:30:00'
             }
-        )
+        })
     }
-} | ConvertTo-Json -Depth 100 -Compress
-$sourceInitPipeline = New-DefinitionItem -WorkspaceId $workspaceId -Collection 'dataPipelines' `
-    -DisplayName 'pl_initialize_azure_sql_source' `
-    -Description 'Creates and validates the deterministic synthetic Azure SQL source through the private VNet gateway.' `
-    -Parts @((ConvertTo-InlinePart -Path 'pipeline-content.json' -Content $sourceInitDefinition))
-
+}
+$sourcePipeline = New-DefinitionItem -WorkspaceId $workspaceId -Collection 'dataPipelines' `
+    -DisplayName 'pl_initialize_azure_sql_source' -Description 'Upserts the deterministic synthetic Azure SQL source.' `
+    -Parts @((ConvertTo-InlinePart -Path 'pipeline-content.json' -Content ($sourceDefinition | ConvertTo-Json -Depth 100)))
 $existingMirror = Get-WorkspaceItem -WorkspaceId $workspaceId -Collection 'mirroredDatabases' -DisplayName 'CommunityHealthOLTP_Mirror'
-if (-not $existingMirror) {
-    $sourceJobRequest = [Net.Http.HttpRequestMessage]::new(
-        [Net.Http.HttpMethod]::Post,
-        "$FabricBaseUri/workspaces/$workspaceId/items/$($sourceInitPipeline.id)/jobs/instances?jobType=Pipeline"
-    )
-    $sourceJobResponse = $fabricHttpClient.SendAsync($sourceJobRequest).GetAwaiter().GetResult()
-    $sourceJobContent = $sourceJobResponse.Content.ReadAsStringAsync().GetAwaiter().GetResult()
-    if ([int]$sourceJobResponse.StatusCode -notin @(200, 202)) {
-        throw "Unable to start Azure SQL initialization pipeline: HTTP $([int]$sourceJobResponse.StatusCode) $sourceJobContent"
-    }
-    $sourceJobLocation = [string]$sourceJobResponse.Headers.Location
-    if (-not $sourceJobLocation) {
-        $sourceJobLocation = "$FabricBaseUri/workspaces/$workspaceId/items/$($sourceInitPipeline.id)/jobs/instances"
-    }
-    for ($attempt = 0; $attempt -lt 120; $attempt++) {
-        Start-Sleep -Seconds 10
-        $jobs = Invoke-Fabric -Method GET -Path $sourceJobLocation
-        $latestJob = if ($jobs.value) { @($jobs.value) | Sort-Object startTimeUtc -Descending | Select-Object -First 1 } else { $jobs }
-        if ($latestJob.status -eq 'Completed') { break }
-        if ($latestJob.status -in @('Failed', 'Cancelled', 'Deduped')) {
-            throw "Azure SQL initialization pipeline ended in state '$($latestJob.status)': $($latestJob.failureReason | ConvertTo-Json -Depth 20 -Compress)"
-        }
-    }
-    if ($latestJob.status -ne 'Completed') {
-        throw 'Azure SQL initialization pipeline did not complete before timeout.'
-    }
+if (-not $existingMirror -or $InitializeSource) {
+    Start-FabricPipeline -WorkspaceId $workspaceId -PipelineId $sourcePipeline.id | Out-Null
 }
 
-$mirroringTemplate = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\fabric\mirroring\mirroring.template.json') -Raw
-$mirroringJson = $mirroringTemplate.Replace('{{CONNECTION_ID}}', $sqlConnection.id)
+$mirrorContent = (Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\fabric\mirroring\mirroring.template.json') -Raw).
+    Replace('{{CONNECTION_ID}}', $sqlConnection.id)
 $mirror = New-DefinitionItem -WorkspaceId $workspaceId -Collection 'mirroredDatabases' `
-    -DisplayName 'CommunityHealthOLTP_Mirror' `
-    -Description 'Synthetic Azure SQL community-health source mirrored into OneLake.' `
-    -Parts @((ConvertTo-InlinePart -Path 'mirroring.json' -Content $mirroringJson))
-
-$mirroringStarted = $false
-for ($attempt = 0; $attempt -lt 6; $attempt++) {
-    try {
-        Invoke-Fabric -Method POST -Path "workspaces/$workspaceId/mirroredDatabases/$($mirror.id)/startMirroring" | Out-Null
-        $mirroringStarted = $true
-        break
-    }
-    catch {
-        if ($_.Exception.Message -notmatch 'OperationNotAllowedInCurrentStatus|Initializing') {
-            throw
-        }
-        Start-Sleep -Seconds 10
-    }
-}
-if (-not $mirroringStarted) {
-    Write-Warning 'The mirrored database is still initializing. Remaining Fabric items will be provisioned while its SQL endpoint continues asynchronously.'
-}
+    -DisplayName 'CommunityHealthOLTP_Mirror' -Description 'Synthetic community-health source mirrored into OneLake.' `
+    -Parts @((ConvertTo-InlinePart -Path 'mirroring.json' -Content $mirrorContent))
+$mirrorStatus = Start-FabricMirroring -WorkspaceId $workspaceId -MirrorId $mirror.id
+if ($mirrorStatus.status -eq 'Running with warning') { Write-Warning 'Inspect the mirroring warning before presenting.' }
 
 $warehouse = Get-WorkspaceItem -WorkspaceId $workspaceId -Collection 'warehouses' -DisplayName 'CommunityHealthAnalyticsWH'
 if (-not $warehouse) {
     $warehouse = Invoke-Fabric -Method POST -Path "workspaces/$workspaceId/warehouses" -Body @{
         displayName = 'CommunityHealthAnalyticsWH'
-        description = 'Curated synthetic community-health analytics warehouse.'
+        description = 'Synthetic source facts and physical, privacy-filtered reporting tables.'
     }
 }
-
 for ($attempt = 0; $attempt -lt 60; $attempt++) {
     $warehouse = Invoke-Fabric -Method GET -Path "workspaces/$workspaceId/warehouses/$($warehouse.id)"
     if ($warehouse.properties.connectionString) { break }
     Start-Sleep -Seconds 5
 }
-if (-not $warehouse.properties.connectionString) {
-    throw 'The Fabric Warehouse SQL endpoint did not become ready.'
-}
-
 $warehouseEndpoint = $warehouse.properties.connectionString
-$schemaScript = Join-Path $PSScriptRoot '..\fabric\warehouse\001_analytics_schema.sql'
-$viewsScript = Join-Path $PSScriptRoot '..\fabric\warehouse\002_privacy_views.sql'
+if (-not $warehouseEndpoint) { throw 'The Warehouse SQL endpoint did not become ready.' }
 & py -3.12 (Join-Path $PSScriptRoot 'Invoke-SqlWithAccessToken.py') `
-    --server $warehouseEndpoint `
-    --database 'CommunityHealthAnalyticsWH' `
-    $schemaScript
-if ($LASTEXITCODE -ne 0) { throw 'Fabric Warehouse schema creation failed.' }
+    --server $warehouseEndpoint --database 'CommunityHealthAnalyticsWH' `
+    --tenant-id $SqlServicePrincipalTenantId `
+    (Join-Path $PSScriptRoot '..\fabric\warehouse\001_analytics_schema.sql') `
+    (Join-Path $PSScriptRoot '..\fabric\warehouse\002_privacy_views.sql') `
+    (Join-Path $PSScriptRoot '..\database\security\001_reporting_role.sql')
+if ($LASTEXITCODE -ne 0) { throw 'Warehouse schema or privacy-view deployment failed.' }
 
-$loadSql = @"
-TRUNCATE TABLE analytics.FactCapacity;
-TRUNCATE TABLE analytics.FactReferral;
-TRUNCATE TABLE analytics.FactAppointment;
-TRUNCATE TABLE analytics.DimClientSegment;
-TRUNCATE TABLE analytics.DimProgram;
-TRUNCATE TABLE analytics.DimFacility;
-INSERT analytics.DimFacility SELECT FacilityId, FacilityName, Neighborhood, PlannedDailyCapacity FROM [CommunityHealthOLTP_Mirror].[health].[Facilities];
-INSERT analytics.DimProgram SELECT ProgramId, FacilityId, ProgramName, ServiceCategory FROM [CommunityHealthOLTP_Mirror].[health].[Programs];
-INSERT analytics.DimClientSegment SELECT ClientId, AgeBand, DemographicGroup, Neighborhood FROM [CommunityHealthOLTP_Mirror].[health].[Clients];
-INSERT analytics.FactAppointment SELECT AppointmentId, ClientId, ProgramId, CAST(ScheduledAt AS date), WaitDays, AppointmentStatus FROM [CommunityHealthOLTP_Mirror].[health].[Appointments];
-INSERT analytics.FactReferral SELECT ReferralId, ClientId, FromProgramId, ToProgramId, ReferralDate, ReferralStatus, DaysToClose FROM [CommunityHealthOLTP_Mirror].[health].[Referrals];
-INSERT analytics.FactCapacity SELECT CapacitySnapshotId, FacilityId, SnapshotDate, AvailableSlots, BookedSlots FROM [CommunityHealthOLTP_Mirror].[health].[CapacitySnapshots];
-"@
-
-$temporaryLoadFile = Join-Path $SessionDirectory 'warehouse-load.sql'
-$loadSql | Set-Content -LiteralPath $temporaryLoadFile -Encoding utf8
-try {
-    if ($mirroringStarted) {
-        & py -3.12 (Join-Path $PSScriptRoot 'Invoke-SqlWithAccessToken.py') `
-            --server $warehouseEndpoint `
-            --database 'CommunityHealthAnalyticsWH' `
-            $temporaryLoadFile `
-            $viewsScript
-        if ($LASTEXITCODE -ne 0) { throw 'Fabric Warehouse load or privacy-view creation failed.' }
-    }
-    else {
-        Write-Warning 'Warehouse data load is deferred until mirroring can start.'
-    }
+$loadSql = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\fabric\warehouse\003_refresh_analytics.sql') -Raw
+$validationSql = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\fabric\warehouse\004_validate_analytics.sql') -Raw
+$pipelineDefinition = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\fabric\pipeline\pipeline-content.template.json') -Raw | ConvertFrom-Json
+$activity = $pipelineDefinition.properties.activities[0]
+$activity.linkedService.properties.typeProperties.endpoint = $warehouseEndpoint
+$activity.linkedService.properties.typeProperties.artifactId = $warehouse.id
+$activity.linkedService.properties.typeProperties.workspaceId = $workspaceId
+if ($WarehouseConnectionId) {
+    $activity.PSObject.Properties.Remove('linkedService')
+    $activity | Add-Member -NotePropertyName externalReferences -NotePropertyValue @{ connection = $WarehouseConnectionId }
+    $activity.typeProperties | Add-Member -NotePropertyName database -NotePropertyValue @{ name = 'CommunityHealthAnalyticsWH' }
 }
-finally {
-    Remove-Item -LiteralPath $temporaryLoadFile -Force -ErrorAction SilentlyContinue
-}
+$activity.typeProperties.scripts[0].text = "$loadSql`n$validationSql"
+$pipeline = New-DefinitionItem -WorkspaceId $workspaceId -Collection 'dataPipelines' `
+    -DisplayName 'pl_load_community_health_analytics' `
+    -Description 'Transactionally refreshes and validates the physical reporting tables.' `
+    -Parts @((ConvertTo-InlinePart -Path 'pipeline-content.json' -Content ($pipelineDefinition | ConvertTo-Json -Depth 100)))
+$pipelineJob = Start-FabricPipeline -WorkspaceId $workspaceId -PipelineId $pipeline.id
 
-$pipeline = Get-WorkspaceItem -WorkspaceId $workspaceId -Collection 'dataPipelines' -DisplayName 'pl_load_community_health_analytics'
-if (-not $pipeline) {
-    $pipeline = Invoke-Fabric -Method POST -Path "workspaces/$workspaceId/dataPipelines" -Body @{
-        displayName = 'pl_load_community_health_analytics'
-        description = 'Curated load pipeline item. The deploy script executes the checked-in equivalent load SQL because a reusable Warehouse OAuth connection cannot be safely exported with credentials.'
-    }
-}
-
-$semanticParts = @()
+$replacements = @{ '{{WAREHOUSE_SQL_ENDPOINT}}' = $warehouseEndpoint }
 $semanticRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\fabric\semantic-model')).Path
-Get-ChildItem -LiteralPath $semanticRoot -File -Recurse | ForEach-Object {
-    $relative = $_.FullName.Substring($semanticRoot.Length + 1).Replace('\', '/')
-    $content = Get-Content -LiteralPath $_.FullName -Raw
-    if ($relative -eq 'definition/expressions.tmdl') {
-        $content = $content.Replace('{{WAREHOUSE_SQL_ENDPOINT}}', $warehouseEndpoint)
-    }
-    $semanticParts += ConvertTo-InlinePart -Path $relative -Content $content
-}
 $semanticModel = New-DefinitionItem -WorkspaceId $workspaceId -Collection 'semanticModels' `
-    -DisplayName 'Community Health Access Model' `
-    -Description 'Direct Lake measures over privacy-controlled synthetic community-health analytics.' `
-    -Parts $semanticParts
+    -DisplayName 'Community Health Access Model' -Description 'Direct Lake over physical, privacy-filtered reporting tables.' `
+    -Parts @(Get-DefinitionParts -Root $semanticRoot -Replacements $replacements)
+Start-FabricSemanticModelRefresh -TenantId $SqlServicePrincipalTenantId `
+    -WorkspaceId $workspaceId -SemanticModelId $semanticModel.id | Out-Null
 
-$ontologyParts = @()
-$ontologyRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\fabric\ontology')).Path
-Get-ChildItem -LiteralPath $ontologyRoot -File -Recurse | ForEach-Object {
-    $relative = $_.FullName.Substring($ontologyRoot.Length + 1).Replace('\', '/')
-    $ontologyParts += ConvertTo-InlinePart -Path $relative -Content (Get-Content -LiteralPath $_.FullName -Raw)
-}
 $ontology = $null
-$ontologyStatus = 'Created'
+$ontologyWorkspace = if ($OntologyWorkspaceName -eq $WorkspaceName) { $workspace } else {
+    Get-FabricCollection -Path 'workspaces' | Where-Object displayName -eq $OntologyWorkspaceName | Select-Object -First 1
+}
+if (-not $ontologyWorkspace) {
+    throw "Ontology workspace '$OntologyWorkspaceName' was not found. No workspace or capacity was provisioned automatically."
+}
+$ontologyStatus = 'Not attempted.'
+$ontologyRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\fabric\ontology')).Path
 try {
+    $priorOntology = Get-WorkspaceItem -WorkspaceId $ontologyWorkspace.id -Collection 'ontologies' -DisplayName 'CCSF_Community_Health_Demo_Ontology'
     $ontology = New-DefinitionItem -WorkspaceId $ontologyWorkspace.id -Collection 'ontologies' `
-        -DisplayName 'CCSF_Community_Health_Ontology' `
-        -Description 'Synthetic community-health access domain ontology.' `
-        -Parts $ontologyParts
+        -DisplayName 'CCSF_Community_Health_Demo_Ontology' `
+        -Description 'Five governed entities bound to reporting tables, with no client-level source.' `
+        -Parts @(Get-DefinitionParts -Root $ontologyRoot -Replacements $replacements) `
+        -PreserveExisting:(-not $UpdateExistingOntology)
+    $ontologyStatus = if ($priorOntology -and -not $UpdateExistingOntology) {
+        'Existing definition preserved unchanged; inspect its actual bindings and refresh in the portal.'
+    } else {
+        'Definition created or updated with declared Warehouse bindings; portal verification required.'
+    }
 }
 catch {
-    if ($_.Exception.Message -notmatch 'FeatureNotAvailable|feature is not available') {
-        throw
-    }
-    $ontologyStatus = 'Not created: automated creation returned FeatureNotAvailable. Verify the Users can create Fabric items and Users can create ontology (preview) items tenant settings for the deployment identity or capacity.'
+    if ($_.Exception.Message -notmatch 'FeatureNotAvailable|feature is not available') { throw }
+    $ontologyStatus = 'Not deployed: Ontology preview is unavailable in this workspace. Follow the runbook fallback; no companion workspace was automatically created.'
     Write-Warning $ontologyStatus
 }
 
 $datasource = (Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\fabric\data-agent\datasource.template.json') -Raw).
-    Replace('{{SEMANTIC_MODEL_ID}}', $semanticModel.id).
-    Replace('{{WORKSPACE_ID}}', $workspaceId)
-$agentParts = @(
-    (ConvertTo-InlinePart -Path 'Files/Config/data_agent.json' -Content (Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\fabric\data-agent\data_agent.json') -Raw)),
-    (ConvertTo-InlinePart -Path 'Files/Config/draft/semantic_model-CommunityHealthAccessModel/datasource.json' -Content $datasource),
-    (ConvertTo-InlinePart -Path 'Files/Config/draft/semantic_model-CommunityHealthAccessModel/fewshots.json' -Content (Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\fabric\data-agent\fewshots.json') -Raw)),
-    (ConvertTo-InlinePart -Path 'Files/Config/draft/stage_config.json' -Content (Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\fabric\data-agent\stage_config.json') -Raw))
-)
+    Replace('{{SEMANTIC_MODEL_ID}}', $semanticModel.id).Replace('{{WORKSPACE_ID}}', $workspaceId)
 $dataAgent = New-DefinitionItem -WorkspaceId $workspaceId -Collection 'dataAgents' `
-    -DisplayName 'SFDPH Community Health Analyst' `
-    -Description 'Aggregate-only analyst for the synthetic community-health demonstration.' `
-    -Parts $agentParts
+    -DisplayName 'SFDPH Community Health Analyst' -Description 'Aggregate-only synthetic community-health analyst.' `
+    -Parts @(
+        (ConvertTo-InlinePart -Path 'Files/Config/data_agent.json' -Content (Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\fabric\data-agent\data_agent.json') -Raw)),
+        (ConvertTo-InlinePart -Path 'Files/Config/draft/semantic_model-CommunityHealthAccessModel/datasource.json' -Content $datasource),
+        (ConvertTo-InlinePart -Path 'Files/Config/draft/semantic_model-CommunityHealthAccessModel/fewshots.json' -Content (Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\fabric\data-agent\fewshots.json') -Raw)),
+        (ConvertTo-InlinePart -Path 'Files/Config/draft/stage_config.json' -Content (Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\fabric\data-agent\stage_config.json') -Raw))
+    )
+if ($PublishDataAgent) {
+    Publish-FabricDataAgent -WorkspaceId $workspaceId -DataAgentId $dataAgent.id
+}
 
 [ordered]@{
+    tenantId = $SqlServicePrincipalTenantId
     workspaceId = $workspaceId
     workspaceName = $WorkspaceName
     capacityId = $CapacityId
-    ontologyWorkspaceId = $ontologyWorkspace.id
-    ontologyWorkspaceName = $OntologyWorkspaceName
-    ontologyCapacityId = $OntologyCapacityId
     gatewayId = $gateway.id
     sqlConnectionId = $sqlConnection.id
-    sourceInitializationPipelineId = $sourceInitPipeline.id
+    sourceInitializationPipelineId = $sourcePipeline.id
     mirroredDatabaseId = $mirror.id
     warehouseId = $warehouse.id
     warehouseSqlEndpoint = $warehouseEndpoint
+    warehouseConnectionId = $WarehouseConnectionId
     pipelineId = $pipeline.id
+    analyticsPipelineJobId = $pipelineJob.id
+    analyticsPipelineJobStatus = $pipelineJob.status
+    analyticsPipelineJobCompletedAt = $pipelineJob.endTimeUtc
     semanticModelId = $semanticModel.id
+    ontologyWorkspaceId = $ontologyWorkspace.id
+    ontologyWorkspaceName = $ontologyWorkspace.displayName
+    ontologyCapacityId = $ontologyWorkspace.capacityId
     ontologyId = $ontology.id
     ontologyStatus = $ontologyStatus
+    ontologyAgentAttachmentStatus = 'Manual preview step: add ontology context to a second agent and complete presenter acceptance checks.'
     dataAgentId = $dataAgent.id
-    reportStatus = 'Not created: official REST APIs require an existing report definition; from-scratch visual authoring is not documented.'
-    ontologyAgentAttachmentStatus = 'Not attached: the generation-2 Ontology is modeled but unbound because the companion workspace has no compatible Lakehouse or Eventhouse source. The Warehouse-backed semantic model remains the Data Agent source.'
+    agentPublicationStatus = if ($PublishDataAgent) { 'Published configuration verified; run MCP question-bank acceptance before presenting.' } else { 'Draft updated; prior published configuration preserved. Publish explicitly before evaluating the new draft.' }
+    reportStatus = 'No report generated. The runbook uses Warehouse queries, semantic model exploration, and agents.'
     deployedAt = [DateTimeOffset]::Now.ToString('o')
 } | ConvertTo-Json | Set-Content -LiteralPath $StateFile -Encoding utf8
 
-Write-Host 'Fabric workspace, mirroring, warehouse, pipeline, semantic model, ontology, and Data Agent deployment completed.'
+Write-Host "Fabric baseline refreshed. Ontology: $ontologyStatus Complete portal acceptance using docs\presenter-runbook.md."

@@ -1,0 +1,25 @@
+table Programs
+	lineageTag: fa813448-f6a4-465c-a729-4932c1aa1454
+	column ProgramId
+		lineageTag: 8ff07b9a-26be-42dc-bf61-072f6c8b223f
+		dataType: int64
+		sourceColumn: ProgramId
+	column FacilityId
+		lineageTag: 2693ee89-08b2-497f-9898-1be383eecdb6
+		dataType: int64
+		sourceColumn: FacilityId
+	column ProgramName
+		lineageTag: 348eb7c1-b265-44d3-a55c-80fece893e20
+		dataType: string
+		sourceColumn: ProgramName
+	column ServiceCategory
+		lineageTag: 0df7308e-7407-4b77-b39e-cf8344806a32
+		dataType: string
+		sourceColumn: ServiceCategory
+
+	partition Programs = entity
+		mode: directLake
+		source
+			entityName: Programs
+			schemaName: reporting
+			expressionSource: DatabaseQuery

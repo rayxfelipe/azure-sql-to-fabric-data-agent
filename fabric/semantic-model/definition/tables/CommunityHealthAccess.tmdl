@@ -1,6 +1,12 @@
+/// Synthetic appointment reporting aggregates. Source demographic groups with
+/// fewer than 11 appointments are removed before this table is materialized.
+/// Every appointment measure excludes those suppressed groups. Suppression is
+/// upstream data removal, not a hidden model filter or a hidden subgroup.
 table CommunityHealthAccess
 	lineageTag: 865b9d8d-3032-4ab4-a426-a2f6cb08b109
 
+	/// Reported appointments only. Excludes source groups suppressed for having
+	/// fewer than 11 appointments. This is not the full source population count.
 	measure 'Appointments' = SUM(CommunityHealthAccess[AppointmentCount])
 		formatString: #,0
 
@@ -14,8 +20,13 @@ table CommunityHealthAccess
 			)
 		formatString: 0.0%
 
-	measure 'Average Wait Days' = AVERAGE(CommunityHealthAccess[AverageWaitDays])
+	/// Appointment-weighted wait over non-suppressed reporting groups only:
+	/// total wait days divided by reported appointments, not group-average mean.
+	measure 'Average Wait Days' = DIVIDE(SUM(CommunityHealthAccess[WaitDaysTotal]), [Appointments])
 		formatString: 0.0
+
+	measure 'Appointment Completion Rate' = DIVIDE([Completed Appointments], [Appointments])
+		formatString: 0.0%
 
 	column ScheduledDate
 		dataType: dateTime
@@ -60,12 +71,19 @@ table CommunityHealthAccess
 
 	column AverageWaitDays
 		dataType: double
-		summarizeBy: average
+		isHidden
+		summarizeBy: none
 		sourceColumn: AverageWaitDays
+
+	column WaitDaysTotal
+		dataType: int64
+		isHidden
+		summarizeBy: sum
+		sourceColumn: WaitDaysTotal
 
 	partition CommunityHealthAccess = entity
 		mode: directLake
 		source
-			entityName: analytics.vw_CommunityHealthAccess
-			schemaName: analytics
+			entityName: CommunityHealthAccess
+			schemaName: reporting
 			expressionSource: DatabaseQuery

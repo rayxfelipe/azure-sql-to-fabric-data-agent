@@ -15,6 +15,16 @@
       "id": "8f5133fe-03bf-4b06-9c8d-04bf09127ef2",
       "question": "How many referrals were completed by service category?",
       "query": "EVALUATE SUMMARIZECOLUMNS(ReferralPerformance[ServiceCategory], \"Referrals\", [Referrals], \"Referral Completion Rate\", [Referral Completion Rate])"
+    },
+    {
+      "id": "9204d3db-2333-47e3-bb9e-5d06c2fe19db",
+      "question": "What are the total reported appointments, average wait days, and no-show rate in this synthetic dataset?",
+      "query": "EVALUATE ROW(\"Reported Appointments\", [Appointments], \"Average Wait Days\", [Average Wait Days], \"No-Show Rate\", [No-Show Rate])"
+    },
+    {
+      "id": "b63400a1-996d-47f3-87be-7a8ef2a29a5d",
+      "question": "Which facility capacity snapshots exceeded 85 percent utilization in September 2026?",
+      "query": "EVALUATE TOPN(10, FILTER(FacilityCapacity, FacilityCapacity[SnapshotDate] >= DATE(2026, 9, 1) && FacilityCapacity[SnapshotDate] < DATE(2026, 10, 1) && FacilityCapacity[UtilizationRate] > 0.85), FacilityCapacity[UtilizationRate], DESC, FacilityCapacity[CapacitySnapshotId], ASC)"
     }
   ]
 }

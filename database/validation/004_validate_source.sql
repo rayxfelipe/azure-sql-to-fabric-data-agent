@@ -1,5 +1,11 @@
 SET NOCOUNT ON;
 
+IF NOT EXISTS (SELECT 1 FROM health.Clients)
+    OR NOT EXISTS (SELECT 1 FROM health.Appointments)
+    OR NOT EXISTS (SELECT 1 FROM health.Referrals)
+    OR NOT EXISTS (SELECT 1 FROM health.CapacitySnapshots)
+    THROW 51003, 'The synthetic source is incomplete or empty.', 1;
+
 IF EXISTS
 (
     SELECT 1
